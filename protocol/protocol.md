@@ -31,7 +31,7 @@ recommended electrical implementation.
 - The Pico sets data before changing clock.
 - Every clock transition transfers one bit; there is no preferred edge.
 - Clock remains at its new level until the next bit.
-- Initial target: 200 microseconds between clock changes (5 kbit/s).
+- Initial target: 400 microseconds between clock changes (2.5 kbit/s).
 - A deliberate idle gap permits the Atari to discard a partial byte.
 - The Pico must never produce two clock changes inside the Atari's maximum
   polling interval.
@@ -99,7 +99,7 @@ Note-on velocity zero is note-off. A note-off only closes the gate if its note
 matches the currently active monophonic note on that MIDI channel.
 
 Default envelope indices are attack `0` (instant) and release `1`. Envelopes
-run at two ticks per frame: 100 Hz on PAL and approximately 120 Hz on NTSC.
+run once per frame: 50 Hz on PAL and approximately 60 Hz on NTSC.
 
 Indices select ticks per one-step amplitude change:
 
@@ -123,9 +123,9 @@ Indices select ticks per one-step amplitude change:
 
 ## Television timing
 
-- PAL: 312 scanlines, 50 Hz frames, 100 Hz envelope ticks, and approximately
+- PAL: 312 scanlines, 50 Hz frames, 50 Hz envelope ticks, and approximately
   7,812.5 four-bit PCM samples/second.
-- NTSC: 262 scanlines, approximately 60 Hz frames, approximately 120 Hz
+- NTSC: 262 scanlines, approximately 60 Hz frames, approximately 60 Hz
   envelope ticks, and approximately 7,867.1 four-bit PCM samples/second.
 - Four-bit PCM updates occur every two scanlines on both targets.
 - Samples are unsigned 4-bit amplitude values, packed two per ROM byte.

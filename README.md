@@ -7,7 +7,7 @@ The project is split into four parts:
 - `protocol/`: the shared Pico-to-Atari wire protocol.
 - `atari/`: PAL Atari 2600 ROM source and builds.
 - `pico/`: class-compliant USB MIDI firmware for an RP2040 Pico board.
-- `browser/`: the fully offline sample-bank ROM patcher.
+- `web/`: the fully offline sample-bank ROM patcher.
 
 ## Fixed hardware targets
 
@@ -19,10 +19,11 @@ The project is split into four parts:
 
 ## Current milestone
 
-The 4 KiB diagnostic ROM provides stable PAL and NTSC displays, background
-activity feedback, a five-bank controller-port-1 sound check, a scanline-safe
-controller-port-2 serial receiver, and two AR envelope engines. The production
-F4 sample ROM builds on this kernel.
+The PAL and NTSC ROMs provide stable displays, background activity feedback, a
+five-bank controller-port-1 sound check, a scanline-safe controller-port-2
+serial receiver, two AR envelope engines, and 4-bit sample playback in the 32K
+F4 builds. The Pico firmware builds as a class-compliant USB MIDI device. The
+offline patcher converts WAV files and replaces all 32 ROM sample slots.
 
 ## Build the diagnostic ROMs
 
@@ -30,5 +31,29 @@ F4 sample ROM builds on this kernel.
 make -C atari
 ```
 
-The outputs are `atari/build/a26f-pal-4k.bin` and
-`atari/build/a26f-ntsc-4k.bin`.
+Outputs include 4K diagnostic ROMs and production `a26f-pal.f4` and
+`a26f-ntsc.f4` images.
+
+## Build the Pico firmware
+
+The project uses Pico SDK 2.3.0 and the Arm GNU toolchain. With
+`PICO_SDK_PATH` and the compiler available:
+
+```sh
+cmake -S pico -B pico/build -DPICO_BOARD=pico
+cmake --build pico/build
+```
+
+Flash `pico/build/a26f_neo.uf2` by holding BOOTSEL while connecting the Pico,
+then copying the UF2 to the mounted `RPI-RP2` drive.
+
+## Build and use the offline patcher
+
+```sh
+node web/build.mjs
+```
+
+Open `web/a26f-rom-patcher.html` directly in a browser. Choose a production F4
+ROM, choose or mass-drop up to 32 WAV files, preview their actual 4-bit
+conversion, select gated or one-shot playback for each slot, and create the
+patched ROM. No web server or network connection is used.

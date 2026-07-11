@@ -2,13 +2,13 @@
         INCLUDE "vcs.inc"
 
         IFCONST VIDEO_NTSC
-VBLANK_LINES_REMAINING = 7
-VISIBLE_LINES          = 192
-OVERSCAN_LINES         = 30
+COMMAND_GROUPS = 4
+VISIBLE_PAIRS  = 96
+OVERSCAN_PAIRS = 15
         ELSE
-VBLANK_LINES_REMAINING = 15
-VISIBLE_LINES          = 228
-OVERSCAN_LINES         = 36
+COMMAND_GROUPS = 6
+VISIBLE_PAIRS  = 114
+OVERSCAN_PAIRS = 18
         ENDIF
 
 ; -----------------------------------------------------------------------------
@@ -55,6 +55,17 @@ Voice1Current  ds 1
 Voice1Counter  ds 1
 EnvelopeParams ds 4
 PendingEnv     ds 1
+SampleBank     ds 1
+SamplePtr      ds 2
+SampleDirectoryIndex ds 1
+PendingSampleSlot ds 1
+SampleLoadStep ds 1
+SampleActive   ds 1
+SampleByte     ds 1
+SamplePhase    ds 1
+SampleLength   ds 2
+SampleFlags    ds 1
+SampleOutput   ds 1
 
 Voice0Attack  = EnvelopeParams
 Voice0Release = EnvelopeParams+1
@@ -62,7 +73,12 @@ Voice1Attack  = EnvelopeParams+2
 Voice1Release = EnvelopeParams+3
 
         SEG CODE
+        IFCONST F4_BUILD
+        ORG $7000
+        RORG $F000
+        ELSE
         ORG $F000
+        ENDIF
 
 Reset:
         sei
@@ -95,6 +111,7 @@ ClearTia:
         sta DirectionIndex
         sta PrevDirection
         sta PendingEnv
+        sta SamplePhase
         lda #1
         sta Voice0Release
         sta Voice1Release
@@ -115,85 +132,98 @@ Frame:
         lda #2
         sta VBLANK
         sta VSYNC
+        jsr SampleTick
         sta WSYNC
+        jsr PollSerial
         sta WSYNC
+        jsr SampleTick
         sta WSYNC
         lda #0
         sta VSYNC
 
-        ; Controller and command work is separated by receiver polling lines.
-        ; The maximum interval between port-2 polls remains below one Pico bit.
+        ; Every second scanline is a sample tick. Alternating lines poll the
+        ; serial receiver or perform one bounded foreground task.
         jsr PollDirectionInput
         sta WSYNC
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
+        sta WSYNC
+        jsr SampleTick
         sta WSYNC
         jsr ApplySoundcheck
         sta WSYNC
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
+        sta WSYNC
+        jsr SampleTick
         sta WSYNC
         jsr PollFire
         sta WSYNC
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
         sta WSYNC
+        jsr SampleTick
+        sta WSYNC
 
-        ; Up to eight commands are serviced per frame. Each service line is
-        ; followed by a receiver line so incoming bits cannot be missed.
-        lda #8
+        jsr UpdateEnvelope0
+        sta WSYNC
+        jsr SampleTick
+        sta WSYNC
+        jsr PollSerial
+        sta WSYNC
+        jsr SampleTick
+        sta WSYNC
+        jsr UpdateEnvelope1
+        sta WSYNC
+        jsr SampleTick
+        sta WSYNC
+        jsr PollSerial
+        sta WSYNC
+        jsr SampleTick
+        sta WSYNC
+
+        lda #COMMAND_GROUPS
         sta LineCounter
 CommandServiceLoop:
         jsr ServiceCommand
         sta WSYNC
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
+        sta WSYNC
+        jsr SampleTick
         sta WSYNC
         dec LineCounter
         bne CommandServiceLoop
-
-        ; Two envelope ticks per frame. Each voice update is followed by a
-        ; receiver line, preserving the serial polling bound.
-        jsr UpdateEnvelope0
-        sta WSYNC
         jsr PollSerial
         sta WSYNC
-        jsr UpdateEnvelope1
-        sta WSYNC
-        jsr PollSerial
-        sta WSYNC
-        jsr UpdateEnvelope0
-        sta WSYNC
-        jsr PollSerial
-        sta WSYNC
-        jsr UpdateEnvelope1
-        sta WSYNC
-        jsr PollSerial
-        sta WSYNC
-
-        lda #VBLANK_LINES_REMAINING
-        sta LineCounter
-VBlankLoop:
-        jsr PollSerial
-        sta WSYNC
-        dec LineCounter
-        bne VBlankLoop
 
         ; Visible area: a single activity colour.
         lda #0
         sta VBLANK
         lda BgColor
         sta COLUBK
-        lda #VISIBLE_LINES
+        lda #VISIBLE_PAIRS
         sta LineCounter
 VisibleLoop:
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
         sta WSYNC
         dec LineCounter
         bne VisibleLoop
 
-        ; 36 overscan lines.
+        ; Overscan retains the same sample/poll alternation.
         lda #2
         sta VBLANK
-        lda #OVERSCAN_LINES
+        lda #OVERSCAN_PAIRS
         sta LineCounter
 OverscanLoop:
+        jsr SampleTick
+        sta WSYNC
         jsr PollSerial
         sta WSYNC
         dec LineCounter
@@ -264,7 +294,17 @@ DirectionReleased:
         lda #0
         sta LocalActive
         sta AUDV0
+        IFNCONST F4_BUILD
         sta AUDV1
+        ELSE
+        lda SoundBank
+        cmp #4
+        bne DirectionInputDone
+        lda SampleFlags
+        and #1
+        beq DirectionInputDone
+        jsr BeginSampleGateOff
+        ENDIF
 DirectionInputDone:
         rts
 
@@ -302,6 +342,11 @@ LocalSampleBank:
         cpy PrevDirection
         beq SoundcheckDone
         sty PrevDirection
+        IFCONST F4_BUILD
+        sty PendingSampleSlot
+        lda #1
+        sta SampleLoadStep
+        ENDIF
         lda #1
         sta LocalActive
         lda #8
@@ -402,6 +447,21 @@ SerialQueueFull:
 ; Dequeue and apply at most one command. Direct commands update TIA and RAM
 ; shadows. Envelope/sample extensions retain this same dispatch point.
 ServiceCommand:
+        IFCONST F4_BUILD
+        lda SampleLoadStep
+        beq ServiceQueuedCommand
+        cmp #1
+        bne ServiceLoadLater
+        jmp ServiceSampleLoad1
+ServiceLoadLater:
+        cmp #2
+        bne ServiceLoadThird
+        jmp ServiceSampleLoad2
+ServiceLoadThird:
+        jmp ServiceSampleLoad3
+        ENDIF
+
+ServiceQueuedCommand:
         lda RxRead
         cmp RxWrite
         bne ServiceHasCommand
@@ -461,12 +521,22 @@ ServiceVoice1Control:
         lda RxCommand
         and #$0F
         sta Voice1Audc
+        lda SampleActive
+        beq ServiceVoice1ControlLive
+        jmp ServiceDirectActivity
+ServiceVoice1ControlLive:
+        lda Voice1Audc
         sta AUDC1
         jmp ServiceDirectActivity
 ServiceVoice1Pitch:
         lda RxCommand
         and #$1F
         sta Voice1Audf
+        lda SampleActive
+        beq ServiceVoice1PitchLive
+        jmp ServiceDirectActivity
+ServiceVoice1PitchLive:
+        lda Voice1Audf
         sta AUDF1
         jmp ServiceDirectActivity
 ServiceVoice1Volume:
@@ -478,9 +548,16 @@ ServiceVoice1Volume:
         rts
 
 ServiceSample:
-        ; Production F4 code replaces this marker with sample slot dispatch.
+        IFCONST F4_BUILD
+        lda RxCommand
+        and #$1F
+        sta PendingSampleSlot
+        lda #1
+        sta SampleLoadStep
+        ELSE
         lda #$C6
         sta BgColor
+        ENDIF
         rts
 
 ServiceExtended:
@@ -489,7 +566,9 @@ ServiceExtended:
         cmp #$E4
         beq ServiceParserReset
         cmp #$E4
-        bcs ServiceDone
+        bcc ServiceEnvelopeSelect
+        jmp ServiceDone
+ServiceEnvelopeSelect:
         and #$03
         sta PendingEnv
         rts
@@ -521,11 +600,80 @@ ServiceParserReset:
         rts
 
 ServiceSampleGateOff:
+        IFCONST F4_BUILD
+        lda SampleActive
+        beq ServiceDone
+        lda SampleFlags
+        and #1
+        beq ServiceDone
+        jsr BeginSampleGateOff
+        ELSE
         lda #0
         sta Voice1Target
         lda #1
         sta Voice1Counter
+        ENDIF
         rts
+
+        IFCONST F4_BUILD
+ServiceSampleLoad1:
+        lda PendingSampleSlot
+        asl
+        asl
+        asl
+        tax
+        lda SampleDirectory,x
+        sta SampleBank
+        inx
+        lda SampleDirectory,x
+        sta SamplePtr
+        inx
+        lda SampleDirectory,x
+        sta SamplePtr+1
+        inx
+        stx SampleDirectoryIndex
+        lda #2
+        sta SampleLoadStep
+        rts
+
+ServiceSampleLoad2:
+        ldx SampleDirectoryIndex
+        lda SampleDirectory,x
+        sta SampleLength
+        inx
+        lda SampleDirectory,x
+        sta SampleLength+1
+        inx
+        stx SampleDirectoryIndex
+        lda #3
+        sta SampleLoadStep
+        rts
+
+ServiceSampleLoad3:
+        ldx SampleDirectoryIndex
+        lda SampleDirectory,x
+        sta SampleFlags
+        lda SampleBank
+        cmp #$FF
+        beq ServiceSampleEmpty
+        lda SampleLength
+        ora SampleLength+1
+        beq ServiceSampleEmpty
+        lda #1
+        sta SampleActive
+        lda #0
+        sta SamplePhase
+        sta SampleLoadStep
+        sta AUDC1
+        rts
+ServiceSampleEmpty:
+        lda SampleOutput
+        ora #$80
+        sta SamplePhase
+        lda #0
+        sta SampleLoadStep
+        rts
+        ENDIF
 
 ServiceDirectActivity:
         lda #$66
@@ -534,6 +682,96 @@ ServiceDirectActivity:
 
 ServiceDone:
         rts
+
+; SamplePhase keeps the hot path compact enough for one scanline:
+; $00 fetch/high nibble, $01 low nibble, $80-$8F release ramp, $FF idle.
+SampleTick:
+        IFCONST F4_BUILD
+        lda SamplePhase
+        bmi SampleTickNegative
+        beq SampleTickHigh
+
+SampleTickLow:
+        lda SampleByte
+        and #$0F
+        sta SampleOutput
+        sta AUDV1
+        lda #0
+        sta SamplePhase
+        sec
+        lda SampleLength
+        sbc #1
+        sta SampleLength
+        lda SampleLength+1
+        sbc #0
+        sta SampleLength+1
+        ora SampleLength
+        beq SampleTickLastByte
+        inc SamplePtr
+        bne SampleTickDone
+        inc SamplePtr+1
+        rts
+SampleTickLastByte:
+        lda SampleOutput
+        ora #$80
+        sta SamplePhase
+SampleTickDone:
+        rts
+
+SampleTickHigh:
+        ldy #0
+        jsr FetchSampleByte
+        sta SampleByte
+        lsr
+        lsr
+        lsr
+        lsr
+        sta SampleOutput
+        sta AUDV1
+        inc SamplePhase
+        rts
+
+SampleTickNegative:
+        cmp #$FF
+        beq SampleTickDone
+        and #$0F
+        beq SampleTickFinish
+        sec
+        sbc #1
+        sta SampleOutput
+        ora #$80
+        sta SamplePhase
+        lda SampleOutput
+        sta AUDV1
+        rts
+
+SampleTickFinish:
+        lda #$FF
+        sta SamplePhase
+        lda #0
+        sta SampleActive
+        sta SampleOutput
+        lda Voice1Audc
+        sta AUDC1
+        lda Voice1Audf
+        sta AUDF1
+        lda Voice1Current
+        sta AUDV1
+        rts
+        ELSE
+        rts
+        ENDIF
+
+        IFCONST F4_BUILD
+BeginSampleGateOff:
+        lda SamplePhase
+        bmi BeginSampleGateDone
+        lda SampleOutput
+        ora #$80
+        sta SamplePhase
+BeginSampleGateDone:
+        rts
+        ENDIF
 
 ; Attack/release indices select ticks per 4-bit volume step. Index 0 snaps to
 ; the target. These routines are each bounded to one scanline including JSR.
@@ -586,7 +824,10 @@ UpdateEnvelope1:
         bne Envelope1Done
         dec Voice1Current
         lda Voice1Current
+        ldy SampleActive
+        bne Envelope1ReleaseStored
         sta AUDV1
+Envelope1ReleaseStored:
         lda EnvelopeRateTable,x
         sta Voice1Counter
 Envelope1Done:
@@ -599,13 +840,18 @@ Envelope1Attack:
         bne Envelope1Done
         inc Voice1Current
         lda Voice1Current
+        ldy SampleActive
+        bne Envelope1AttackStored
         sta AUDV1
+Envelope1AttackStored:
         lda EnvelopeRateTable,x
         sta Voice1Counter
         rts
 Envelope1Snap:
         lda Voice1Target
         sta Voice1Current
+        ldy SampleActive
+        bne Envelope1Done
         sta AUDV1
         rts
 
@@ -619,9 +865,57 @@ EnvelopeRateTable:
         .byte 1, 1, 2, 3, 4, 6, 8, 12
         .byte 16, 24, 32, 48, 64, 96, 128, 192
 
+        IFCONST F4_BUILD
+        ; 32 entries x 8 bytes: bank, address, packed length, flags, reserved.
+        ORG $7D00
+        RORG $FD00
+SampleDirectory:
+        REPEAT 32
+        .byte $FF, 0, 0, 0, 0, 1, 0, 0
+        REPEND
+
+        ; Versioned browser-patch manifest at raw ROM offset $7E00.
+        ORG $7E00
+        RORG $FE00
+PatchManifest:
+        .byte "A26FSMP", 0
+        .byte 1, 0
+        IFCONST VIDEO_NTSC
+        .byte 1
+        ELSE
+        .byte 0
+        ENDIF
+        .byte 4, 8, 32, 1, 1
+        IFCONST VIDEO_NTSC
+        .byte $FC, $0A, $78, $00     ; 7,867,132 millihertz
+        ELSE
+        .byte $94, $35, $77, $00     ; 7,812,500 millihertz
+        ENDIF
+        .byte $00, $80, $00, $00     ; 32768-byte ROM
+        .byte $00, $7D, $00, $00     ; directory file offset
+        .byte $00, $01, $00, $00     ; directory length
+        .byte 7, 8, 0, 0
+        .word $0000, $0F00
+        .word $1000, $0F00
+        .word $2000, $0F00
+        .word $3000, $0F00
+        .word $4000, $0F00
+        .word $5000, $0F00
+        .word $6000, $0F00
+        ds 64, 0
+
+        ORG $7F00
+        RORG $FF00
+        INCLUDE "f4_stub.inc"
+
+        ORG $7FFA
+        RORG $FFFA
+        .word F4Reset, F4Reset, F4Reset
+        ELSE
         ORG $FFFA
         .word Reset
         .word Reset
         .word Reset
+        ENDIF
 
         END

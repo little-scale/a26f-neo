@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A26F NEO Sample Patcher</title>
+  <style>:root{color-scheme:dark;--ink:#f5f2e9;--muted:#aaa69b;--panel:#181a1d;--line:#303339;--red:#ff5349;--amber:#ffb648;--green:#7ed88b;background:#0d0e10;font:16px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% -10%,#3b1717 0,transparent 32rem),#0d0e10}header,main,footer{width:min(1080px,calc(100% - 32px));margin:auto}header{display:flex;align-items:center;gap:18px;padding:48px 0 30px}.mark{display:grid;place-items:center;width:70px;height:70px;border:2px solid var(--red);color:var(--red);font-size:22px;font-weight:900;box-shadow:6px 6px 0 #4b1e1b}h1,h2,p{margin:0}h1{font-size:clamp(26px,5vw,44px);letter-spacing:-.06em}header p,.panel p{color:var(--muted)}main{display:grid;gap:18px}.panel{border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 94%,transparent);box-shadow:0 18px 50px #0006}.rom-panel,.build-panel{display:grid;grid-template-columns:1fr auto;align-items:center;gap:22px;padding:24px}.step{float:left;margin:2px 13px 20px 0;color:var(--red);font-weight:900}.summary{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;padding:12px 15px;background:#101113;border-left:3px solid var(--amber)}.summary span{color:var(--muted);text-align:right}.controls{padding:24px}.heading{display:flex}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:22px 0}.primary-file input,.choose input{position:absolute;opacity:0;pointer-events:none}.primary-file span,.build{display:inline-block;padding:12px 18px;border:0;background:var(--red);color:white;font:inherit;font-weight:900;cursor:pointer}.primary-file:has(input:disabled) span,.build:disabled{opacity:.35;cursor:not-allowed}.toggle{display:flex;align-items:center;gap:8px;color:var(--muted)}input[type=checkbox]{accent-color:var(--red);width:18px;height:18px}.quiet,.remove,.preview{border:1px solid var(--line);background:transparent;color:var(--muted);font:inherit;cursor:pointer}.quiet{padding:9px 13px;margin-left:auto}.drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:105px;margin:-3px 0 18px;border:2px dashed #43474e;background:#121416;color:var(--muted);transition:.15s}.drop-zone strong{color:var(--ink);font-size:18px}.drop-zone.dragging{border-color:var(--green);background:#152019;box-shadow:inset 0 0 0 3px #7ed88b22}.capacity{margin-bottom:18px}.capacity>div:first-child{display:flex;justify-content:space-between;color:var(--muted);font-size:13px}.track{height:7px;margin-top:7px;background:#282a2e;overflow:hidden}.track i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));transition:width .25s}.slots{display:grid;gap:7px;max-height:560px;overflow:auto;padding-right:5px}.slot{display:grid;grid-template-columns:45px minmax(180px,1fr) 130px 110px 34px 34px;align-items:center;gap:10px;padding:9px;background:#111315;border:1px solid #25282c}.slot.filled{border-left:3px solid var(--green)}.slot-number{font-size:18px;color:var(--red);font-weight:900}.slot-file{display:flex;min-width:0;flex-direction:column}.slot-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.slot-detail,.mode span{font-size:11px;color:var(--muted)}.mode{display:flex;flex-direction:column}.mode select{border:1px solid var(--line);background:#191b1e;color:var(--ink);padding:6px;font:inherit;font-size:12px}.choose span{display:block;padding:8px 9px;text-align:center;border:1px solid var(--line);color:var(--muted);font-size:12px;cursor:pointer}.preview,.remove{height:34px;font-size:17px}.preview:disabled{opacity:.25;cursor:not-allowed}.remove{font-size:22px}.build-panel{margin-top:0}.build{font-size:16px}.message{position:sticky;bottom:12px;padding:13px 16px;background:#22252a;border-left:4px solid var(--amber);box-shadow:0 10px 30px #0008}.message[data-kind=error]{border-color:var(--red)}.message[data-kind=success]{border-color:var(--green)}footer{padding:30px 0 50px;color:#656871;text-align:center;font-size:12px}@media(max-width:760px){header{padding-top:28px}.rom-panel,.build-panel{grid-template-columns:1fr}.summary{flex-direction:column}.summary span{text-align:left}.slot{grid-template-columns:36px 1fr 34px 34px}.mode,.choose{grid-row:2}.mode{grid-column:2}.choose{grid-column:2;margin-left:140px}.preview{grid-column:3;grid-row:1/3}.remove{grid-column:4;grid-row:1/3}.quiet{margin-left:0}.drop-zone{text-align:center;padding:16px}.build-panel .build{width:100%}}
+</style>
+</head>
+<body>
+  <header><div class="mark">A26F</div><div><h1>NEO Sample Patcher</h1><p>Build a custom Atari 2600 drum ROM—entirely offline.</p></div></header>
+  <main>
+    <section class="panel rom-panel">
+      <div><span class="step">1</span><h2>Choose the base ROM</h2><p>The patcher checks the ROM version and uses its PAL or NTSC sample rate.</p></div>
+      <label class="primary-file"><input id="rom-input" type="file" accept=".f4,.bin,.rom,application/octet-stream"><span>Choose ROM</span></label>
+      <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span></div>
+    </section>
+
+    <section class="panel controls">
+      <div class="heading"><span class="step">2</span><div><h2>Fill the sample slots</h2><p>Files are automatically converted to the ROM's native 4-bit sample format.</p></div></div>
+      <div class="toolbar">
+        <label class="primary-file"><input id="sample-input" type="file" accept="audio/wav,.wav" multiple disabled><span>Add WAV files</span></label>
+        <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
+        <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
+        <button id="clear-button" class="quiet" type="button">Clear all</button>
+      </div>
+      <div id="drop-zone" class="drop-zone">
+        <strong>Drop WAV files here</strong>
+        <span>They will be sorted by filename and placed into the first empty slots.</span>
+      </div>
+      <div class="capacity"><div><span>ROM sample space</span><strong id="capacity-text"></strong></div><div class="track"><i id="capacity-bar"></i></div></div>
+      <div id="slots" class="slots"></div>
+    </section>
+
+    <section class="panel build-panel">
+      <div><span class="step">3</span><h2>Create the patched ROM</h2><p>Your original ROM and audio never leave this browser.</p></div>
+      <button id="build-button" class="build" type="button" disabled>Create ROM</button>
+    </section>
+    <div id="message" class="message" role="status">Choose a base ROM to begin.</div>
+  </main>
+  <footer>A26F NEO · format 1.0 · no network connection required</footer>
+  <script type="module">const MAGIC = "A26FSMP\0";
+const FORMAT_MAJOR = 1;
+const FORMAT_MINOR = 0;
+const SLOT_COUNT = 32;
+const FLAG_GATED = 1;
+
+const readU16 = (data, offset) => data[offset] | (data[offset + 1] << 8);
+const readU32 = (data, offset) =>
+  (data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) |
+    (data[offset + 3] << 24)) >>> 0;
+
+const writeU16 = (data, offset, value) => {
+  data[offset] = value & 0xff;
+  data[offset + 1] = (value >>> 8) & 0xff;
+};
+
+function parseManifest(input) {
+  const rom = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (rom.length !== 32768) throw new Error("This tool requires a 32K F4 ROM.");
+
+  const offset = 0x7e00;
+  const magic = String.fromCharCode(...rom.slice(offset, offset + 8));
+  if (magic !== MAGIC) throw new Error("A26F sample manifest not found.");
+
+  const major = rom[offset + 8];
+  const minor = rom[offset + 9];
+  if (major !== FORMAT_MAJOR || minor !== FORMAT_MINOR) {
+    throw new Error(`ROM format ${major}.${minor} is not supported by this tool.`);
+  }
+
+  const manifest = {
+    offset,
+    major,
+    minor,
+    tv: rom[offset + 10] === 0 ? "PAL" : "NTSC",
+    mapper: rom[offset + 11],
+    bankCount: rom[offset + 12],
+    slotCount: rom[offset + 13],
+    encoding: rom[offset + 14],
+    defaultFlags: rom[offset + 15],
+    sampleRate: readU32(rom, offset + 16) / 1000,
+    romSize: readU32(rom, offset + 20),
+    directoryOffset: readU32(rom, offset + 24),
+    directoryLength: readU32(rom, offset + 28),
+    directoryBank: rom[offset + 32],
+    entrySize: rom[offset + 33],
+    regions: [],
+  };
+
+  if (manifest.mapper !== 4 || manifest.bankCount !== 8 ||
+      manifest.slotCount !== SLOT_COUNT || manifest.encoding !== 1 ||
+      manifest.romSize !== rom.length || manifest.directoryOffset !== 0x7d00 ||
+      manifest.directoryLength !== 0x100 || manifest.entrySize !== 8) {
+    throw new Error("The ROM manifest is valid but its layout is not supported.");
+  }
+
+  for (let i = 0; i < 7; i += 1) {
+    manifest.regions.push({
+      offset: readU16(rom, offset + 36 + i * 4),
+      length: readU16(rom, offset + 38 + i * 4),
+    });
+  }
+  if (manifest.regions.some((r, i) => r.offset !== i * 0x1000 || r.length !== 0x0f00)) {
+    throw new Error("The ROM sample regions do not match format 1.0.");
+  }
+  return manifest;
+}
+
+function decodeWav(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+  const text = (offset, length) =>
+    String.fromCharCode(...new Uint8Array(arrayBuffer, offset, length));
+  if (text(0, 4) !== "RIFF" || text(8, 4) !== "WAVE") {
+    throw new Error("Not a RIFF/WAVE file.");
+  }
+
+  let format;
+  let dataOffset;
+  let dataLength;
+  for (let offset = 12; offset + 8 <= view.byteLength;) {
+    const id = text(offset, 4);
+    const length = view.getUint32(offset + 4, true);
+    const body = offset + 8;
+    if (body + length > view.byteLength) throw new Error("Truncated WAV chunk.");
+    if (id === "fmt ") {
+      format = {
+        code: view.getUint16(body, true),
+        channels: view.getUint16(body + 2, true),
+        sampleRate: view.getUint32(body + 4, true),
+        blockAlign: view.getUint16(body + 12, true),
+        bits: view.getUint16(body + 14, true),
+      };
+    } else if (id === "data") {
+      dataOffset = body;
+      dataLength = length;
+    }
+    offset = body + length + (length & 1);
+  }
+  if (!format || dataOffset === undefined) throw new Error("WAV format or data is missing.");
+  if (![1, 3].includes(format.code) || format.channels < 1 || format.channels > 8) {
+    throw new Error("Use PCM or IEEE-float WAV audio with 1–8 channels.");
+  }
+  if (format.code === 1 && ![8, 16, 24, 32].includes(format.bits)) {
+    throw new Error("Supported PCM depths are 8, 16, 24, and 32-bit.");
+  }
+  if (format.code === 3 && format.bits !== 32) throw new Error("Only 32-bit float WAV is supported.");
+
+  const frameCount = Math.floor(dataLength / format.blockAlign);
+  const mono = new Float32Array(frameCount);
+  const bytesPerSample = format.bits / 8;
+  const readSample = (offset) => {
+    if (format.code === 3) return view.getFloat32(offset, true);
+    if (format.bits === 8) return (view.getUint8(offset) - 128) / 128;
+    if (format.bits === 16) return view.getInt16(offset, true) / 32768;
+    if (format.bits === 24) {
+      let value = view.getUint8(offset) | (view.getUint8(offset + 1) << 8) |
+        (view.getUint8(offset + 2) << 16);
+      if (value & 0x800000) value |= 0xff000000;
+      return value / 8388608;
+    }
+    return view.getInt32(offset, true) / 2147483648;
+  };
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    let sum = 0;
+    const base = dataOffset + frame * format.blockAlign;
+    for (let channel = 0; channel < format.channels; channel += 1) {
+      sum += readSample(base + channel * bytesPerSample);
+    }
+    mono[frame] = Math.max(-1, Math.min(1, sum / format.channels));
+  }
+  return {samples: mono, sampleRate: format.sampleRate};
+}
+
+function trimAudio(samples, sampleRate, thresholdDb = -48, marginMs = 4) {
+  let peak = 0;
+  for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+  if (peak === 0) return new Float32Array([0, 0]);
+  const threshold = peak * (10 ** (thresholdDb / 20));
+  let start = 0;
+  let end = samples.length - 1;
+  while (start < samples.length && Math.abs(samples[start]) < threshold) start += 1;
+  while (end > start && Math.abs(samples[end]) < threshold) end -= 1;
+  const margin = Math.round(sampleRate * marginMs / 1000);
+  start = Math.max(0, start - margin);
+  end = Math.min(samples.length - 1, end + margin);
+  return samples.slice(start, end + 1);
+}
+
+function resampleLinear(samples, sourceRate, targetRate) {
+  const length = Math.max(2, Math.round(samples.length * targetRate / sourceRate));
+  const output = new Float32Array(length);
+  const scale = sourceRate / targetRate;
+  if (scale > 1) {
+    // A weighted box filter reduces the worst fold-down aliasing before the
+    // deliberately low-rate 4-bit quantisation.
+    for (let i = 0; i < length; i += 1) {
+      const start = i * scale;
+      const end = Math.min(samples.length, (i + 1) * scale);
+      let sum = 0;
+      let weight = 0;
+      for (let source = Math.floor(start); source < Math.ceil(end); source += 1) {
+        if (source < 0 || source >= samples.length) continue;
+        const overlap = Math.max(0, Math.min(end, source + 1) - Math.max(start, source));
+        sum += samples[source] * overlap;
+        weight += overlap;
+      }
+      output[i] = weight ? sum / weight : 0;
+    }
+    return output;
+  }
+  for (let i = 0; i < length; i += 1) {
+    const position = Math.min(samples.length - 1, i * scale);
+    const left = Math.floor(position);
+    const right = Math.min(samples.length - 1, left + 1);
+    const fraction = position - left;
+    output[i] = samples[left] * (1 - fraction) + samples[right] * fraction;
+  }
+  return output;
+}
+
+function processAudio(decoded, targetRate, options = {}) {
+  let samples = options.autoTrim === false
+    ? decoded.samples.slice()
+    : trimAudio(decoded.samples, decoded.sampleRate, options.thresholdDb ?? -48);
+  samples = resampleLinear(samples, decoded.sampleRate, targetRate);
+
+  let peak = 0;
+  for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+  const gain = options.normalize === false || peak === 0 ? 1 : 0.98 / peak;
+  const fadeSamples = Math.min(Math.floor(samples.length / 2), Math.round(targetRate * 0.003));
+  const packed = new Uint8Array(Math.ceil(samples.length / 2));
+  for (let i = 0; i < samples.length; i += 1) {
+    let envelope = 1;
+    if (fadeSamples > 0 && i < fadeSamples) envelope = i / fadeSamples;
+    if (fadeSamples > 0 && i >= samples.length - fadeSamples) {
+      envelope = Math.min(envelope, (samples.length - 1 - i) / fadeSamples);
+    }
+    const signed = Math.max(-1, Math.min(1, samples[i] * gain * envelope));
+    const nibble = Math.max(0, Math.min(15, Math.round((signed + 1) * 7.5)));
+    if ((i & 1) === 0) packed[i >> 1] = nibble << 4;
+    else packed[i >> 1] |= nibble;
+  }
+  if (samples.length & 1) packed[packed.length - 1] |= 8;
+  return {packed, sampleCount: samples.length, duration: samples.length / targetRate};
+}
+
+function packSlots(slots, regionLength) {
+  const placements = new Array(SLOT_COUNT).fill(null);
+  const bins = Array.from({length: 7}, () => ({used: 0}));
+  const ordered = slots.map((slot, index) => ({slot, index}))
+    .filter(({slot}) => slot?.packed?.length)
+    .sort((a, b) => b.slot.packed.length - a.slot.packed.length);
+
+  for (const item of ordered) {
+    if (item.slot.packed.length > regionLength) {
+      throw new Error(`Slot ${item.index}: sample exceeds ${regionLength} packed bytes.`);
+    }
+    let selected = -1;
+    let leastRemaining = Infinity;
+    for (let bank = 0; bank < bins.length; bank += 1) {
+      const remaining = regionLength - bins[bank].used;
+      if (item.slot.packed.length <= remaining && remaining < leastRemaining) {
+        selected = bank;
+        leastRemaining = remaining;
+      }
+    }
+    if (selected < 0) throw new Error("The samples do not fit in the seven ROM payload banks.");
+    placements[item.index] = {bank: selected, offset: bins[selected].used};
+    bins[selected].used += item.slot.packed.length;
+  }
+  return {placements, used: bins.reduce((sum, bin) => sum + bin.used, 0)};
+}
+
+function patchRom(input, manifest, slots) {
+  const source = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const rom = source.slice();
+  const regionLength = manifest.regions[0].length;
+  const {placements, used} = packSlots(slots, regionLength);
+
+  for (const region of manifest.regions) rom.fill(0, region.offset, region.offset + region.length);
+  rom.fill(0, manifest.directoryOffset, manifest.directoryOffset + manifest.directoryLength);
+
+  for (let index = 0; index < SLOT_COUNT; index += 1) {
+    const entry = manifest.directoryOffset + index * manifest.entrySize;
+    const slot = slots[index];
+    const placement = placements[index];
+    if (!slot?.packed?.length || !placement) {
+      rom[entry] = 0xff;
+      rom[entry + 5] = slot?.gated === false ? 0 : FLAG_GATED;
+      continue;
+    }
+    const region = manifest.regions[placement.bank];
+    rom.set(slot.packed, region.offset + placement.offset);
+    rom[entry] = placement.bank;
+    writeU16(rom, entry + 1, 0xf000 + placement.offset);
+    writeU16(rom, entry + 3, slot.packed.length);
+    rom[entry + 5] = slot.gated === false ? 0 : FLAG_GATED;
+  }
+  return {rom, used, capacity: regionLength * manifest.regions.length};
+}
+
+const state = {
+  rom: null,
+  manifest: null,
+  slots: Array.from({length: SLOT_COUNT}, () => null),
+};
+
+const $ = (selector) => document.querySelector(selector);
+const romInput = $("#rom-input");
+const batchInput = $("#sample-input");
+const slotsElement = $("#slots");
+const buildButton = $("#build-button");
+const clearButton = $("#clear-button");
+const message = $("#message");
+const romSummary = $("#rom-summary");
+const capacityBar = $("#capacity-bar");
+const capacityText = $("#capacity-text");
+const dropZone = $("#drop-zone");
+const previewAudio = new Audio();
+let activePreview = -1;
+
+function showMessage(text, kind = "info") {
+  message.textContent = text;
+  message.dataset.kind = kind;
+}
+
+function refreshCapacity() {
+  const used = state.slots.reduce((sum, slot) => sum + (slot?.packed.length ?? 0), 0);
+  const capacity = state.manifest ? state.manifest.regions.reduce((sum, r) => sum + r.length, 0) : 26880;
+  capacityBar.style.width = `${Math.min(100, used / capacity * 100)}%`;
+  capacityText.textContent = `${used.toLocaleString()} / ${capacity.toLocaleString()} packed bytes`;
+}
+
+function makePreviewUrl(packed, sampleCount, sampleRate) {
+  const wav = new Uint8Array(44 + sampleCount);
+  const view = new DataView(wav.buffer);
+  const text = (offset, value) => [...value].forEach((char, i) => { wav[offset + i] = char.charCodeAt(0); });
+  text(0, "RIFF");
+  view.setUint32(4, 36 + sampleCount, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, Math.round(sampleRate), true);
+  view.setUint32(28, Math.round(sampleRate), true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  text(36, "data");
+  view.setUint32(40, sampleCount, true);
+  for (let i = 0; i < sampleCount; i += 1) {
+    const nibble = (i & 1) ? packed[i >> 1] & 0x0f : packed[i >> 1] >> 4;
+    wav[44 + i] = nibble * 17;
+  }
+  return URL.createObjectURL(new Blob([wav], {type: "audio/wav"}));
+}
+
+function slotMarkup(index) {
+  return `<article class="slot" data-slot="${index}">
+    <div class="slot-number">${String(index).padStart(2, "0")}</div>
+    <div class="slot-file">
+      <strong class="slot-name">Empty</strong>
+      <span class="slot-detail">MIDI notes ${index}, ${index + 32}, ${index + 64}, ${index + 96}</span>
+    </div>
+    <label class="mode"><span>Mode</span><select aria-label="Playback mode for slot ${index}">
+      <option value="gated">Gated</option><option value="one-shot">One-shot</option>
+    </select></label>
+    <label class="choose"><input type="file" accept="audio/wav,.wav"><span>Choose WAV</span></label>
+    <button class="preview" type="button" aria-label="Preview slot ${index}" disabled>▶</button>
+    <button class="remove" type="button" aria-label="Clear slot ${index}">×</button>
+  </article>`;
+}
+
+slotsElement.innerHTML = Array.from({length: SLOT_COUNT}, (_, index) => slotMarkup(index)).join("");
+
+async function loadSample(index, file) {
+  if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
+  const decoded = decodeWav(await file.arrayBuffer());
+  const processed = processAudio(decoded, state.manifest.sampleRate, {
+    autoTrim: $("#auto-trim").checked,
+    normalize: $("#normalize").checked,
+  });
+  const max = state.manifest.regions[0].length;
+  if (processed.packed.length > max) {
+    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
+  }
+  const row = slotsElement.querySelector(`[data-slot="${index}"]`);
+  if (state.slots[index]?.previewUrl) URL.revokeObjectURL(state.slots[index].previewUrl);
+  state.slots[index] = {
+    name: file.name,
+    packed: processed.packed,
+    duration: processed.duration,
+    sampleCount: processed.sampleCount,
+    gated: row.querySelector("select").value === "gated",
+    previewUrl: makePreviewUrl(processed.packed, processed.sampleCount, state.manifest.sampleRate),
+  };
+  row.querySelector(".slot-name").textContent = file.name;
+  row.querySelector(".slot-detail").textContent = `${processed.duration.toFixed(3)} s · ${processed.sampleCount.toLocaleString()} × 4-bit samples`;
+  row.classList.add("filled");
+  row.querySelector(".preview").disabled = false;
+  refreshCapacity();
+}
+
+slotsElement.addEventListener("change", async (event) => {
+  const row = event.target.closest(".slot");
+  const index = Number(row.dataset.slot);
+  if (event.target.matches('input[type="file"]') && event.target.files[0]) {
+    try {
+      await loadSample(index, event.target.files[0]);
+      showMessage(`Loaded ${event.target.files[0].name} into slot ${index}.`, "success");
+    } catch (error) {
+      event.target.value = "";
+      showMessage(error.message, "error");
+    }
+  }
+  if (event.target.matches("select") && state.slots[index]) {
+    state.slots[index].gated = event.target.value === "gated";
+  }
+});
+
+slotsElement.addEventListener("click", (event) => {
+  const preview = event.target.closest(".preview");
+  if (preview) {
+    const row = preview.closest(".slot");
+    const index = Number(row.dataset.slot);
+    if (activePreview === index && !previewAudio.paused) {
+      previewAudio.pause();
+      preview.textContent = "▶";
+      activePreview = -1;
+      return;
+    }
+    for (const button of slotsElement.querySelectorAll(".preview")) button.textContent = "▶";
+    previewAudio.src = state.slots[index].previewUrl;
+    previewAudio.play();
+    preview.textContent = "■";
+    activePreview = index;
+    return;
+  }
+  const button = event.target.closest(".remove");
+  if (!button) return;
+  const row = button.closest(".slot");
+  const index = Number(row.dataset.slot);
+  if (activePreview === index) {
+    previewAudio.pause();
+    activePreview = -1;
+  }
+  if (state.slots[index]?.previewUrl) URL.revokeObjectURL(state.slots[index].previewUrl);
+  state.slots[index] = null;
+  row.querySelector(".slot-name").textContent = "Empty";
+  row.querySelector(".slot-detail").textContent = `MIDI notes ${index}, ${index + 32}, ${index + 64}, ${index + 96}`;
+  row.querySelector('input[type="file"]').value = "";
+  row.classList.remove("filled");
+  row.querySelector(".preview").disabled = true;
+  refreshCapacity();
+});
+
+previewAudio.addEventListener("ended", () => {
+  const row = slotsElement.querySelector(`[data-slot="${activePreview}"]`);
+  if (row) row.querySelector(".preview").textContent = "▶";
+  activePreview = -1;
+});
+
+romInput.addEventListener("change", async () => {
+  try {
+    const file = romInput.files[0];
+    if (!file) return;
+    state.rom = new Uint8Array(await file.arrayBuffer());
+    state.manifest = parseManifest(state.rom);
+    romSummary.innerHTML = `<strong>${file.name}</strong><span>${state.manifest.tv} · ${state.manifest.sampleRate.toFixed(1)} Hz · 32K F4 · format ${state.manifest.major}.${state.manifest.minor}</span>`;
+    batchInput.disabled = false;
+    buildButton.disabled = false;
+    refreshCapacity();
+    showMessage("ROM recognised. Add WAV files to any sample slots.", "success");
+  } catch (error) {
+    state.rom = null;
+    state.manifest = null;
+    batchInput.disabled = true;
+    buildButton.disabled = true;
+    romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span>";
+    showMessage(error.message, "error");
+  }
+});
+
+async function loadFiles(fileList) {
+  if (!state.manifest) {
+    showMessage("Choose an A26F ROM before adding samples.", "error");
+    return;
+  }
+  const files = [...fileList]
+    .filter((file) => /\.wav$/i.test(file.name) || /^(audio\/wav|audio\/wave|audio\/x-wav)$/i.test(file.type))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: "base"}));
+  if (!files.length) {
+    showMessage("No WAV files were found in that selection.", "error");
+    return;
+  }
+  const empty = state.slots.map((slot, index) => slot ? -1 : index).filter((index) => index >= 0);
+  if (files.length > empty.length) {
+    showMessage(`Only ${empty.length} sample slots are empty.`, "error");
+    return;
+  }
+  for (let i = 0; i < files.length; i += 1) {
+    try {
+      await loadSample(empty[i], files[i]);
+    } catch (error) {
+      showMessage(error.message, "error");
+      return;
+    }
+  }
+  showMessage(`Loaded ${files.length} sample${files.length === 1 ? "" : "s"} into the first empty slots.`, "success");
+}
+
+batchInput.addEventListener("change", async () => {
+  await loadFiles(batchInput.files);
+  batchInput.value = "";
+});
+
+for (const eventName of ["dragenter", "dragover"]) {
+  dropZone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    if (state.manifest) dropZone.classList.add("dragging");
+  });
+}
+for (const eventName of ["dragleave", "dragend"]) {
+  dropZone.addEventListener(eventName, () => dropZone.classList.remove("dragging"));
+}
+dropZone.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("dragging");
+  await loadFiles(event.dataTransfer.files);
+});
+
+clearButton.addEventListener("click", () => {
+  for (const button of slotsElement.querySelectorAll(".remove")) button.click();
+  showMessage("All sample slots cleared. The source ROM is unchanged.");
+});
+
+buildButton.addEventListener("click", () => {
+  try {
+    const result = patchRom(state.rom, state.manifest, state.slots);
+    const blob = new Blob([result.rom], {type: "application/octet-stream"});
+    const link = document.createElement("a");
+    const base = romInput.files[0].name.replace(/\.(bin|rom|f4)$/i, "");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${base}-samples.f4`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    showMessage(`Patched ROM created using ${result.used.toLocaleString()} of ${result.capacity.toLocaleString()} sample bytes.`, "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
+});
+
+refreshCapacity();
+</script>
+</body>
+</html>

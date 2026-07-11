@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A26F NEO Sample Patcher</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+  <header><div class="mark">A26F</div><div><h1>NEO Sample Patcher</h1><p>Build a custom Atari 2600 drum ROM—entirely offline.</p></div></header>
+  <main>
+    <section class="panel rom-panel">
+      <div><span class="step">1</span><h2>Choose the base ROM</h2><p>The patcher checks the ROM version and uses its PAL or NTSC sample rate.</p></div>
+      <label class="primary-file"><input id="rom-input" type="file" accept=".f4,.bin,.rom,application/octet-stream"><span>Choose ROM</span></label>
+      <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span></div>
+    </section>
+
+    <section class="panel controls">
+      <div class="heading"><span class="step">2</span><div><h2>Fill the sample slots</h2><p>Files are automatically converted to the ROM's native 4-bit sample format.</p></div></div>
+      <div class="toolbar">
+        <label class="primary-file"><input id="sample-input" type="file" accept="audio/wav,.wav" multiple disabled><span>Add WAV files</span></label>
+        <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
+        <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
+        <button id="clear-button" class="quiet" type="button">Clear all</button>
+      </div>
+      <div id="drop-zone" class="drop-zone">
+        <strong>Drop WAV files here</strong>
+        <span>They will be sorted by filename and placed into the first empty slots.</span>
+      </div>
+      <div class="capacity"><div><span>ROM sample space</span><strong id="capacity-text"></strong></div><div class="track"><i id="capacity-bar"></i></div></div>
+      <div id="slots" class="slots"></div>
+    </section>
+
+    <section class="panel build-panel">
+      <div><span class="step">3</span><h2>Create the patched ROM</h2><p>Your original ROM and audio never leave this browser.</p></div>
+      <button id="build-button" class="build" type="button" disabled>Create ROM</button>
+    </section>
+    <div id="message" class="message" role="status">Choose a base ROM to begin.</div>
+  </main>
+  <footer>A26F NEO · format 1.0 · no network connection required</footer>
+  <script type="module">/*__SCRIPT__*/</script>
+</body>
+</html>
