@@ -1,0 +1,16 @@
+.DS_Store
+
+# Local test material; patched ROMs embed converted sample data.
+samples/
+
+# Generated Atari artifacts.
+atari/build/
+
+# Generated Pico artifacts and pinned local SDK checkout.
+pico/build*/
+pico/lib/pico-sdk/
+pico/toolchain/
+
+# Editor and temporary files.
+*.swp
+*~
