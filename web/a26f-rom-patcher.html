@@ -542,7 +542,7 @@ buildButton.addEventListener("click", () => {
     const link = document.createElement("a");
     const base = romInput.files[0].name.replace(/\.(bin|rom|f4)$/i, "");
     link.href = URL.createObjectURL(blob);
-    link.download = `${base}-samples.f4`;
+    link.download = `${base}-samples.bin`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     showMessage(`Patched ROM created using ${result.used.toLocaleString()} of ${result.capacity.toLocaleString()} sample bytes.`, "success");

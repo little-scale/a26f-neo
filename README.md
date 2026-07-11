@@ -56,4 +56,4 @@ node web/build.mjs
 Open `web/a26f-rom-patcher.html` directly in a browser. Choose a production F4
 ROM, choose or mass-drop up to 32 WAV files, preview their actual 4-bit
 conversion, select gated or one-shot playback for each slot, and create the
-patched ROM. No web server or network connection is used.
+patched `.bin` ROM. No web server or network connection is used.
