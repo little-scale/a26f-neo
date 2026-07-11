@@ -25,6 +25,10 @@ serial receiver, two AR envelope engines, and 4-bit sample playback in the 32K
 F4 builds. The Pico firmware builds as a class-compliant USB MIDI device. The
 offline patcher converts WAV files and replaces all 32 ROM sample slots.
 
+Background feedback is audio-reactive: sample slots have varied hues with
+luminance driven by their current 4-bit value; synth voices use distinct colour
+families and alternate when both are active.
+
 ## Build the diagnostic ROMs
 
 ```sh

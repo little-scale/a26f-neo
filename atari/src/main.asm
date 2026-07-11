@@ -25,6 +25,8 @@ OVERSCAN_PAIRS = 18
 BgColor        ds 1
 ActiveColor    ds 1
 ActivityTimer  ds 1
+VisualPhase    ds 1
+VisualLastRxRead ds 1
 PrevFire       ds 1
 LocalActive    ds 1
 SoundBank      ds 1
@@ -198,7 +200,7 @@ CommandServiceLoop:
         sta WSYNC
         dec LineCounter
         bne CommandServiceLoop
-        jsr PollSerial
+        jsr UpdateVisual
         sta WSYNC
 
         ; Visible area: a single activity colour.
@@ -241,15 +243,6 @@ OverscanLoop:
         lda #$FF
         sta PendingEnv
 SerialIdleChecked:
-        lda ActivityTimer
-        beq SetIdleColor
-        dec ActivityTimer
-        lda #$66
-        sta BgColor
-        jmp Frame
-SetIdleColor:
-        lda #0
-        sta BgColor
         jmp Frame
 
 ; Read controller port 1 directions. Inputs are SWCHA bits 7..4, active low.
@@ -312,7 +305,21 @@ DirectionInputDone:
 ; AUDF range. Bank 4 is reserved for sample slots 0-3 in the production F4 ROM.
 ApplySoundcheck:
         ldy DirectionIndex
-        bmi SoundcheckDone
+        bpl ApplyLocalSoundcheck
+
+        lda Voice0Audc
+        sta AUDC0
+        lda Voice0Audf
+        sta AUDF0
+        lda SampleActive
+        bne SoundcheckDone
+        lda Voice1Audc
+        sta AUDC1
+        lda Voice1Audf
+        sta AUDF1
+        rts
+
+ApplyLocalSoundcheck:
 
         lda SoundBank
         cmp #4
@@ -462,12 +469,11 @@ ServiceLoadThird:
         ENDIF
 
 ServiceQueuedCommand:
-        lda RxRead
-        cmp RxWrite
+        ldx RxRead
+        cpx RxWrite
         bne ServiceHasCommand
         rts
 ServiceHasCommand:
-        tax
         lda RxQueue,x
         sta RxCommand
         inx
@@ -476,25 +482,29 @@ ServiceHasCommand:
         sta RxRead
 
         lda RxCommand
-        cmp #$E0
-        bcs ServiceExtended
-        bmi ServiceHighHalf
-        and #$60
-        beq ServiceVoice0Control
-        cmp #$20
-        beq ServiceVoice0Pitch
+        bmi ServiceCommandHigh
         cmp #$40
-        beq ServiceVoice0Volume
+        bcc ServiceVoice0Low
+        cmp #$60
+        bcc ServiceVoice0Volume
         jmp ServiceVoice1Control
 
-ServiceHighHalf:
-        and #$60
-        beq ServiceVoice1Pitch
+ServiceVoice0Low:
         cmp #$20
-        beq ServiceVoice1Volume
-        cmp #$40
-        beq ServiceSample
+        bcc ServiceVoice0Control
+        jmp ServiceVoice0Pitch
+
+ServiceCommandHigh:
+        cmp #$C0
+        bcc ServiceVoice1High
+        cmp #$E0
+        bcc ServiceSample
         jmp ServiceExtended
+
+ServiceVoice1High:
+        cmp #$A0
+        bcs ServiceVoice1Volume
+        jmp ServiceVoice1Pitch
 
 ServiceVoice0Volume:
         lda RxCommand
@@ -508,37 +518,23 @@ ServiceVoice0Control:
         lda RxCommand
         and #$0F
         sta Voice0Audc
-        sta AUDC0
-        jmp ServiceDirectActivity
+        rts
 ServiceVoice0Pitch:
         lda RxCommand
         and #$1F
         sta Voice0Audf
-        sta AUDF0
-        jmp ServiceDirectActivity
+        rts
 
 ServiceVoice1Control:
         lda RxCommand
         and #$0F
         sta Voice1Audc
-        lda SampleActive
-        beq ServiceVoice1ControlLive
-        jmp ServiceDirectActivity
-ServiceVoice1ControlLive:
-        lda Voice1Audc
-        sta AUDC1
-        jmp ServiceDirectActivity
+        rts
 ServiceVoice1Pitch:
         lda RxCommand
         and #$1F
         sta Voice1Audf
-        lda SampleActive
-        beq ServiceVoice1PitchLive
-        jmp ServiceDirectActivity
-ServiceVoice1PitchLive:
-        lda Voice1Audf
-        sta AUDF1
-        jmp ServiceDirectActivity
+        rts
 ServiceVoice1Volume:
         lda RxCommand
         and #$0F
@@ -675,11 +671,6 @@ ServiceSampleEmpty:
         rts
         ENDIF
 
-ServiceDirectActivity:
-        lda #$66
-        sta BgColor
-        rts
-
 ServiceDone:
         rts
 
@@ -773,6 +764,75 @@ BeginSampleGateDone:
         rts
         ENDIF
 
+; Select one background colour per frame. Samples choose hue by slot and use
+; their current 4-bit output as luminance. Synth voices use distinct hues.
+UpdateVisual:
+        inc VisualPhase
+        lda SampleActive
+        beq VisualNoSample
+        ldx PendingSampleSlot
+        lda SampleHueTable,x
+        sta BgColor
+        lda SampleOutput
+        jmp VisualApplyLuma
+
+VisualNoSample:
+        lda LocalActive
+        beq VisualSynth
+        ldx SoundBank
+        lda BankColors,x
+        sta BgColor
+        rts
+
+VisualSynth:
+        lda Voice0Current
+        ora Voice1Current
+        beq VisualActivity
+        lda Voice0Current
+        beq VisualVoice1
+        lda Voice1Current
+        beq VisualVoice0
+        lda VisualPhase
+        and #1
+        bne VisualVoice1
+VisualVoice0:
+        lda #$30
+        sta BgColor
+        lda Voice0Current
+        bne VisualApplyLuma
+VisualVoice1:
+        lda #$A0
+        sta BgColor
+        lda Voice1Current
+VisualApplyLuma:
+        and #$0E
+        ora BgColor
+        sta BgColor
+        rts
+
+VisualActivity:
+        lda RxRead
+        cmp VisualLastRxRead
+        beq VisualActivityTimer
+        sta VisualLastRxRead
+        lda #4
+        sta ActivityTimer
+        lda RxCommand
+        and #$E0
+        ora #$06
+        sta ActiveColor
+VisualActivityTimer:
+        lda ActivityTimer
+        beq VisualIdle
+        dec ActivityTimer
+        lda ActiveColor
+        sta BgColor
+        rts
+VisualIdle:
+        lda #0
+        sta BgColor
+        rts
+
 ; Attack/release indices select ticks per 4-bit volume step. Index 0 snaps to
 ; the target. These routines are each bounded to one scanline including JSR.
 UpdateEnvelope0:
@@ -860,6 +920,12 @@ TestFrequencies:
 
 BankColors:
         .byte $26, $46, $66, $86, $C6
+
+SampleHueTable:
+        .byte $20, $40, $60, $80, $A0, $C0, $E0, $30
+        .byte $50, $70, $90, $B0, $D0, $F0, $10, $60
+        .byte $A0, $E0, $40, $80, $C0, $20, $70, $B0
+        .byte $F0, $50, $90, $D0, $30, $60, $A0, $E0
 
 EnvelopeRateTable:
         .byte 1, 1, 2, 3, 4, 6, 8, 12
