@@ -19,6 +19,8 @@
       <div class="heading"><span class="step">2</span><div><h2>Fill the sample slots</h2><p>Files are automatically converted to the ROM's native 4-bit sample format.</p></div></div>
       <div class="toolbar">
         <label class="primary-file"><input id="sample-input" type="file" accept="audio/wav,.wav" multiple disabled><span>Add WAV files</span></label>
+        <label class="primary-file"><input id="factory-input" type="file" accept=".a26factory,application/octet-stream" disabled><span>Import factory</span></label>
+        <button id="factory-export" class="quiet" type="button" disabled>Export factory</button>
         <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
         <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
         <button id="clear-button" class="quiet" type="button">Clear all</button>

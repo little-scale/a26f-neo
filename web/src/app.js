@@ -1,4 +1,4 @@
-import {decodeWav, parseManifest, patchRom, processAudio, SLOT_COUNT} from "./core.js";
+import {createFactory, decodeWav, FACTORY_RATES, parseFactory, parseManifest, patchRom, processAudio, SLOT_COUNT} from "./core.js";
 
 const state = {
   rom: null,
@@ -17,6 +17,8 @@ const romSummary = $("#rom-summary");
 const capacityBar = $("#capacity-bar");
 const capacityText = $("#capacity-text");
 const dropZone = $("#drop-zone");
+const factoryInput = $("#factory-input");
+const factoryExportButton = $("#factory-export");
 const previewAudio = new Audio();
 let activePreview = -1;
 
@@ -30,6 +32,7 @@ function refreshCapacity() {
   const capacity = state.manifest ? state.manifest.regions.reduce((sum, r) => sum + r.length, 0) : 26880;
   capacityBar.style.width = `${Math.min(100, used / capacity * 100)}%`;
   capacityText.textContent = `${used.toLocaleString()} / ${capacity.toLocaleString()} packed bytes`;
+  factoryExportButton.disabled = !state.slots.some(Boolean);
 }
 
 function makePreviewUrl(packed, sampleCount, sampleRate) {
@@ -74,32 +77,44 @@ function slotMarkup(index) {
 
 slotsElement.innerHTML = Array.from({length: SLOT_COUNT}, (_, index) => slotMarkup(index)).join("");
 
-async function loadSample(index, file) {
-  if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
-  const decoded = decodeWav(await file.arrayBuffer());
-  const processed = processAudio(decoded, state.manifest.sampleRate, {
-    autoTrim: $("#auto-trim").checked,
-    normalize: $("#normalize").checked,
-  });
-  const max = state.manifest.regions[0].length;
-  if (processed.packed.length > max) {
-    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
-  }
+function installSlot(index, slot) {
   const row = slotsElement.querySelector(`[data-slot="${index}"]`);
   if (state.slots[index]?.previewUrl) URL.revokeObjectURL(state.slots[index].previewUrl);
+  const selected = slot.variants[state.manifest.tv];
   state.slots[index] = {
-    name: file.name,
-    packed: processed.packed,
-    duration: processed.duration,
-    sampleCount: processed.sampleCount,
-    gated: row.querySelector("select").value === "gated",
-    previewUrl: makePreviewUrl(processed.packed, processed.sampleCount, state.manifest.sampleRate),
+    ...slot,
+    packed: selected.packed,
+    duration: selected.duration,
+    sampleCount: selected.sampleCount,
+    previewUrl: makePreviewUrl(selected.packed, selected.sampleCount, state.manifest.sampleRate),
   };
-  row.querySelector(".slot-name").textContent = file.name;
-  row.querySelector(".slot-detail").textContent = `${processed.duration.toFixed(3)} s · ${processed.sampleCount.toLocaleString()} × 4-bit samples`;
+  row.querySelector(".slot-name").textContent = slot.name;
+  row.querySelector(".slot-detail").textContent = `${selected.duration.toFixed(3)} s · ${selected.sampleCount.toLocaleString()} × 4-bit samples`;
+  row.querySelector("select").value = slot.gated === false ? "one-shot" : "gated";
   row.classList.add("filled");
   row.querySelector(".preview").disabled = false;
   refreshCapacity();
+}
+
+async function loadSample(index, file) {
+  if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
+  const decoded = decodeWav(await file.arrayBuffer());
+  const options = {autoTrim: $("#auto-trim").checked, normalize: $("#normalize").checked};
+  const variants = {
+    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
+    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
+  };
+  const processed = variants[state.manifest.tv];
+  const max = state.manifest.regions[0].length;
+  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
+    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
+  }
+  const row = slotsElement.querySelector(`[data-slot="${index}"]`);
+  installSlot(index, {
+    name: file.name,
+    gated: row.querySelector("select").value === "gated",
+    variants,
+  });
 }
 
 slotsElement.addEventListener("change", async (event) => {
@@ -167,8 +182,10 @@ romInput.addEventListener("change", async () => {
     if (!file) return;
     state.rom = new Uint8Array(await file.arrayBuffer());
     state.manifest = parseManifest(state.rom);
+    state.slots.forEach((slot, index) => { if (slot?.variants) installSlot(index, slot); });
     romSummary.innerHTML = `<strong>${file.name}</strong><span>${state.manifest.tv} · ${state.manifest.sampleRate.toFixed(1)} Hz · 32K F4 · format ${state.manifest.major}.${state.manifest.minor}</span>`;
     batchInput.disabled = false;
+    factoryInput.disabled = false;
     buildButton.disabled = false;
     refreshCapacity();
     showMessage("ROM recognised. Add WAV files to any sample slots.", "success");
@@ -176,6 +193,7 @@ romInput.addEventListener("change", async () => {
     state.rom = null;
     state.manifest = null;
     batchInput.disabled = true;
+    factoryInput.disabled = true;
     buildButton.disabled = true;
     romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span>";
     showMessage(error.message, "error");
@@ -213,6 +231,35 @@ async function loadFiles(fileList) {
 batchInput.addEventListener("change", async () => {
   await loadFiles(batchInput.files);
   batchInput.value = "";
+});
+
+factoryInput.addEventListener("change", async () => {
+  try {
+    const file = factoryInput.files[0];
+    if (!file) return;
+    const factory = parseFactory(await file.arrayBuffer());
+    for (const button of slotsElement.querySelectorAll(".remove")) button.click();
+    factory.slots.forEach((slot, index) => { if (slot) installSlot(index, slot); });
+    showMessage(`Imported ${file.name} with ${factory.slots.filter(Boolean).length} populated slots.`, "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  } finally {
+    factoryInput.value = "";
+  }
+});
+
+factoryExportButton.addEventListener("click", () => {
+  try {
+    const factory = createFactory(state.slots);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([factory], {type: "application/octet-stream"}));
+    link.download = "a26f-factory.a26factory";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    showMessage("Factory bank exported with PAL and NTSC sample variants.", "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
 });
 
 for (const eventName of ["dragenter", "dragover"]) {

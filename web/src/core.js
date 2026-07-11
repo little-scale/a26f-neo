@@ -3,6 +3,10 @@ export const FORMAT_MAJOR = 1;
 export const FORMAT_MINOR = 0;
 export const SLOT_COUNT = 32;
 export const FLAG_GATED = 1;
+export const FACTORY_MAGIC = "A26FFACT";
+export const FACTORY_MAJOR = 1;
+export const FACTORY_MINOR = 0;
+export const FACTORY_RATES = {PAL: 7812.5, NTSC: 7867.132};
 
 const readU16 = (data, offset) => data[offset] | (data[offset + 1] << 8);
 const readU32 = (data, offset) =>
@@ -13,6 +17,24 @@ const writeU16 = (data, offset, value) => {
   data[offset] = value & 0xff;
   data[offset + 1] = (value >>> 8) & 0xff;
 };
+
+const writeU32 = (data, offset, value) => {
+  data[offset] = value & 0xff;
+  data[offset + 1] = (value >>> 8) & 0xff;
+  data[offset + 2] = (value >>> 16) & 0xff;
+  data[offset + 3] = (value >>> 24) & 0xff;
+};
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
 
 export function parseManifest(input) {
   const rom = input instanceof Uint8Array ? input : new Uint8Array(input);
@@ -257,4 +279,98 @@ export function patchRom(input, manifest, slots) {
     rom[entry + 5] = slot.gated === false ? 0 : FLAG_GATED;
   }
   return {rom, used, capacity: regionLength * manifest.regions.length};
+}
+
+export function createFactory(slots) {
+  for (const tv of ["PAL", "NTSC"]) {
+    packSlots(slots.map((slot) => slot ? {packed: slot.variants?.[tv]?.packed} : null), 0x0f00);
+  }
+  const payloadParts = [];
+  let payloadLength = 0;
+  const metadata = {
+    format: "A26F Factory",
+    version: `${FACTORY_MAJOR}.${FACTORY_MINOR}`,
+    slots: Array.from({length: SLOT_COUNT}, (_, index) => {
+      const slot = slots[index];
+      const record = {name: slot?.name ?? "", gated: slot?.gated !== false, variants: {}};
+      if (!slot) return record;
+      for (const tv of ["PAL", "NTSC"]) {
+        const variant = slot.variants?.[tv];
+        if (!variant?.packed?.length) throw new Error(`Slot ${index} has no ${tv} factory variant.`);
+        if (variant.packed.length > 0x0f00) throw new Error(`Slot ${index} exceeds one ROM payload bank.`);
+        record.variants[tv] = {
+          offset: payloadLength,
+          length: variant.packed.length,
+          sampleCount: variant.sampleCount,
+          sampleRate: FACTORY_RATES[tv],
+        };
+        payloadParts.push(variant.packed);
+        payloadLength += variant.packed.length;
+      }
+      return record;
+    }),
+  };
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(metadata));
+  const result = new Uint8Array(24 + manifestBytes.length + payloadLength);
+  result.set(new TextEncoder().encode(FACTORY_MAGIC), 0);
+  result[8] = FACTORY_MAJOR;
+  result[9] = FACTORY_MINOR;
+  result[10] = SLOT_COUNT;
+  result[11] = 2;
+  writeU32(result, 12, manifestBytes.length);
+  writeU32(result, 16, payloadLength);
+  result.set(manifestBytes, 24);
+  let cursor = 24 + manifestBytes.length;
+  for (const part of payloadParts) {
+    result.set(part, cursor);
+    cursor += part.length;
+  }
+  writeU32(result, 20, crc32(result.subarray(24)));
+  return result;
+}
+
+export function parseFactory(input) {
+  const data = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (data.length < 24) throw new Error("Factory file is truncated.");
+  const magic = new TextDecoder().decode(data.subarray(0, 8));
+  if (magic !== FACTORY_MAGIC) throw new Error("A26F factory header not found.");
+  if (data[8] !== FACTORY_MAJOR || data[9] !== FACTORY_MINOR) {
+    throw new Error(`Factory format ${data[8]}.${data[9]} is not supported.`);
+  }
+  if (data[10] !== SLOT_COUNT || data[11] !== 2) throw new Error("Factory slot or variant count is invalid.");
+  const manifestLength = readU32(data, 12);
+  const payloadLength = readU32(data, 16);
+  if (24 + manifestLength + payloadLength !== data.length) throw new Error("Factory length fields are invalid.");
+  if (readU32(data, 20) !== crc32(data.subarray(24))) throw new Error("Factory checksum failed.");
+  let metadata;
+  try {
+    metadata = JSON.parse(new TextDecoder().decode(data.subarray(24, 24 + manifestLength)));
+  } catch {
+    throw new Error("Factory metadata is invalid.");
+  }
+  if (!Array.isArray(metadata.slots) || metadata.slots.length !== SLOT_COUNT) {
+    throw new Error("Factory does not contain 32 ordered slots.");
+  }
+  const payloadStart = 24 + manifestLength;
+  const slots = metadata.slots.map((record, index) => {
+    const hasAudio = record.variants && Object.keys(record.variants).length;
+    if (!hasAudio) return null;
+    const variants = {};
+    for (const tv of ["PAL", "NTSC"]) {
+      const variant = record.variants[tv];
+      if (!variant || variant.offset < 0 || variant.length < 1 || variant.length > 0x0f00 ||
+          variant.offset + variant.length > payloadLength || variant.sampleCount < 1 ||
+          Math.ceil(variant.sampleCount / 2) !== variant.length ||
+          Math.abs(variant.sampleRate - FACTORY_RATES[tv]) > 0.001) {
+        throw new Error(`Factory slot ${index} has an invalid ${tv} variant.`);
+      }
+      variants[tv] = {
+        packed: data.slice(payloadStart + variant.offset, payloadStart + variant.offset + variant.length),
+        sampleCount: variant.sampleCount,
+        duration: variant.sampleCount / FACTORY_RATES[tv],
+      };
+    }
+    return {name: String(record.name ?? `Slot ${index}`), gated: record.gated !== false, variants};
+  });
+  return {metadata, slots};
 }

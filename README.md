@@ -61,3 +61,14 @@ Open `web/a26f-rom-patcher.html` directly in a browser. Choose a production F4
 ROM, choose or mass-drop up to 32 WAV files, preview their actual 4-bit
 conversion, select gated or one-shot playback for each slot, and create the
 patched `.bin` ROM. No web server or network connection is used.
+
+The browser can also export or import a versioned `.a26factory` instrument
+preset. A factory bank preserves slot order, names, gate modes, and prepared
+PAL and NTSC sample variants. The included 16-slot 808 bank can populate both
+production targets during a source build:
+
+```sh
+make -C atari factory
+```
+
+Use `FACTORY=/path/to/bank.a26factory` to build with another exported bank.

@@ -20,6 +20,8 @@
       <div class="heading"><span class="step">2</span><div><h2>Fill the sample slots</h2><p>Files are automatically converted to the ROM's native 4-bit sample format.</p></div></div>
       <div class="toolbar">
         <label class="primary-file"><input id="sample-input" type="file" accept="audio/wav,.wav" multiple disabled><span>Add WAV files</span></label>
+        <label class="primary-file"><input id="factory-input" type="file" accept=".a26factory,application/octet-stream" disabled><span>Import factory</span></label>
+        <button id="factory-export" class="quiet" type="button" disabled>Export factory</button>
         <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
         <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
         <button id="clear-button" class="quiet" type="button">Clear all</button>
@@ -44,6 +46,10 @@ const FORMAT_MAJOR = 1;
 const FORMAT_MINOR = 0;
 const SLOT_COUNT = 32;
 const FLAG_GATED = 1;
+const FACTORY_MAGIC = "A26FFACT";
+const FACTORY_MAJOR = 1;
+const FACTORY_MINOR = 0;
+const FACTORY_RATES = {PAL: 7812.5, NTSC: 7867.132};
 
 const readU16 = (data, offset) => data[offset] | (data[offset + 1] << 8);
 const readU32 = (data, offset) =>
@@ -54,6 +60,24 @@ const writeU16 = (data, offset, value) => {
   data[offset] = value & 0xff;
   data[offset + 1] = (value >>> 8) & 0xff;
 };
+
+const writeU32 = (data, offset, value) => {
+  data[offset] = value & 0xff;
+  data[offset + 1] = (value >>> 8) & 0xff;
+  data[offset + 2] = (value >>> 16) & 0xff;
+  data[offset + 3] = (value >>> 24) & 0xff;
+};
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
 
 function parseManifest(input) {
   const rom = input instanceof Uint8Array ? input : new Uint8Array(input);
@@ -300,6 +324,100 @@ function patchRom(input, manifest, slots) {
   return {rom, used, capacity: regionLength * manifest.regions.length};
 }
 
+function createFactory(slots) {
+  for (const tv of ["PAL", "NTSC"]) {
+    packSlots(slots.map((slot) => slot ? {packed: slot.variants?.[tv]?.packed} : null), 0x0f00);
+  }
+  const payloadParts = [];
+  let payloadLength = 0;
+  const metadata = {
+    format: "A26F Factory",
+    version: `${FACTORY_MAJOR}.${FACTORY_MINOR}`,
+    slots: Array.from({length: SLOT_COUNT}, (_, index) => {
+      const slot = slots[index];
+      const record = {name: slot?.name ?? "", gated: slot?.gated !== false, variants: {}};
+      if (!slot) return record;
+      for (const tv of ["PAL", "NTSC"]) {
+        const variant = slot.variants?.[tv];
+        if (!variant?.packed?.length) throw new Error(`Slot ${index} has no ${tv} factory variant.`);
+        if (variant.packed.length > 0x0f00) throw new Error(`Slot ${index} exceeds one ROM payload bank.`);
+        record.variants[tv] = {
+          offset: payloadLength,
+          length: variant.packed.length,
+          sampleCount: variant.sampleCount,
+          sampleRate: FACTORY_RATES[tv],
+        };
+        payloadParts.push(variant.packed);
+        payloadLength += variant.packed.length;
+      }
+      return record;
+    }),
+  };
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(metadata));
+  const result = new Uint8Array(24 + manifestBytes.length + payloadLength);
+  result.set(new TextEncoder().encode(FACTORY_MAGIC), 0);
+  result[8] = FACTORY_MAJOR;
+  result[9] = FACTORY_MINOR;
+  result[10] = SLOT_COUNT;
+  result[11] = 2;
+  writeU32(result, 12, manifestBytes.length);
+  writeU32(result, 16, payloadLength);
+  result.set(manifestBytes, 24);
+  let cursor = 24 + manifestBytes.length;
+  for (const part of payloadParts) {
+    result.set(part, cursor);
+    cursor += part.length;
+  }
+  writeU32(result, 20, crc32(result.subarray(24)));
+  return result;
+}
+
+function parseFactory(input) {
+  const data = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (data.length < 24) throw new Error("Factory file is truncated.");
+  const magic = new TextDecoder().decode(data.subarray(0, 8));
+  if (magic !== FACTORY_MAGIC) throw new Error("A26F factory header not found.");
+  if (data[8] !== FACTORY_MAJOR || data[9] !== FACTORY_MINOR) {
+    throw new Error(`Factory format ${data[8]}.${data[9]} is not supported.`);
+  }
+  if (data[10] !== SLOT_COUNT || data[11] !== 2) throw new Error("Factory slot or variant count is invalid.");
+  const manifestLength = readU32(data, 12);
+  const payloadLength = readU32(data, 16);
+  if (24 + manifestLength + payloadLength !== data.length) throw new Error("Factory length fields are invalid.");
+  if (readU32(data, 20) !== crc32(data.subarray(24))) throw new Error("Factory checksum failed.");
+  let metadata;
+  try {
+    metadata = JSON.parse(new TextDecoder().decode(data.subarray(24, 24 + manifestLength)));
+  } catch {
+    throw new Error("Factory metadata is invalid.");
+  }
+  if (!Array.isArray(metadata.slots) || metadata.slots.length !== SLOT_COUNT) {
+    throw new Error("Factory does not contain 32 ordered slots.");
+  }
+  const payloadStart = 24 + manifestLength;
+  const slots = metadata.slots.map((record, index) => {
+    const hasAudio = record.variants && Object.keys(record.variants).length;
+    if (!hasAudio) return null;
+    const variants = {};
+    for (const tv of ["PAL", "NTSC"]) {
+      const variant = record.variants[tv];
+      if (!variant || variant.offset < 0 || variant.length < 1 || variant.length > 0x0f00 ||
+          variant.offset + variant.length > payloadLength || variant.sampleCount < 1 ||
+          Math.ceil(variant.sampleCount / 2) !== variant.length ||
+          Math.abs(variant.sampleRate - FACTORY_RATES[tv]) > 0.001) {
+        throw new Error(`Factory slot ${index} has an invalid ${tv} variant.`);
+      }
+      variants[tv] = {
+        packed: data.slice(payloadStart + variant.offset, payloadStart + variant.offset + variant.length),
+        sampleCount: variant.sampleCount,
+        duration: variant.sampleCount / FACTORY_RATES[tv],
+      };
+    }
+    return {name: String(record.name ?? `Slot ${index}`), gated: record.gated !== false, variants};
+  });
+  return {metadata, slots};
+}
+
 const state = {
   rom: null,
   manifest: null,
@@ -317,6 +435,8 @@ const romSummary = $("#rom-summary");
 const capacityBar = $("#capacity-bar");
 const capacityText = $("#capacity-text");
 const dropZone = $("#drop-zone");
+const factoryInput = $("#factory-input");
+const factoryExportButton = $("#factory-export");
 const previewAudio = new Audio();
 let activePreview = -1;
 
@@ -330,6 +450,7 @@ function refreshCapacity() {
   const capacity = state.manifest ? state.manifest.regions.reduce((sum, r) => sum + r.length, 0) : 26880;
   capacityBar.style.width = `${Math.min(100, used / capacity * 100)}%`;
   capacityText.textContent = `${used.toLocaleString()} / ${capacity.toLocaleString()} packed bytes`;
+  factoryExportButton.disabled = !state.slots.some(Boolean);
 }
 
 function makePreviewUrl(packed, sampleCount, sampleRate) {
@@ -374,32 +495,44 @@ function slotMarkup(index) {
 
 slotsElement.innerHTML = Array.from({length: SLOT_COUNT}, (_, index) => slotMarkup(index)).join("");
 
-async function loadSample(index, file) {
-  if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
-  const decoded = decodeWav(await file.arrayBuffer());
-  const processed = processAudio(decoded, state.manifest.sampleRate, {
-    autoTrim: $("#auto-trim").checked,
-    normalize: $("#normalize").checked,
-  });
-  const max = state.manifest.regions[0].length;
-  if (processed.packed.length > max) {
-    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
-  }
+function installSlot(index, slot) {
   const row = slotsElement.querySelector(`[data-slot="${index}"]`);
   if (state.slots[index]?.previewUrl) URL.revokeObjectURL(state.slots[index].previewUrl);
+  const selected = slot.variants[state.manifest.tv];
   state.slots[index] = {
-    name: file.name,
-    packed: processed.packed,
-    duration: processed.duration,
-    sampleCount: processed.sampleCount,
-    gated: row.querySelector("select").value === "gated",
-    previewUrl: makePreviewUrl(processed.packed, processed.sampleCount, state.manifest.sampleRate),
+    ...slot,
+    packed: selected.packed,
+    duration: selected.duration,
+    sampleCount: selected.sampleCount,
+    previewUrl: makePreviewUrl(selected.packed, selected.sampleCount, state.manifest.sampleRate),
   };
-  row.querySelector(".slot-name").textContent = file.name;
-  row.querySelector(".slot-detail").textContent = `${processed.duration.toFixed(3)} s · ${processed.sampleCount.toLocaleString()} × 4-bit samples`;
+  row.querySelector(".slot-name").textContent = slot.name;
+  row.querySelector(".slot-detail").textContent = `${selected.duration.toFixed(3)} s · ${selected.sampleCount.toLocaleString()} × 4-bit samples`;
+  row.querySelector("select").value = slot.gated === false ? "one-shot" : "gated";
   row.classList.add("filled");
   row.querySelector(".preview").disabled = false;
   refreshCapacity();
+}
+
+async function loadSample(index, file) {
+  if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
+  const decoded = decodeWav(await file.arrayBuffer());
+  const options = {autoTrim: $("#auto-trim").checked, normalize: $("#normalize").checked};
+  const variants = {
+    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
+    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
+  };
+  const processed = variants[state.manifest.tv];
+  const max = state.manifest.regions[0].length;
+  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
+    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
+  }
+  const row = slotsElement.querySelector(`[data-slot="${index}"]`);
+  installSlot(index, {
+    name: file.name,
+    gated: row.querySelector("select").value === "gated",
+    variants,
+  });
 }
 
 slotsElement.addEventListener("change", async (event) => {
@@ -467,8 +600,10 @@ romInput.addEventListener("change", async () => {
     if (!file) return;
     state.rom = new Uint8Array(await file.arrayBuffer());
     state.manifest = parseManifest(state.rom);
+    state.slots.forEach((slot, index) => { if (slot?.variants) installSlot(index, slot); });
     romSummary.innerHTML = `<strong>${file.name}</strong><span>${state.manifest.tv} · ${state.manifest.sampleRate.toFixed(1)} Hz · 32K F4 · format ${state.manifest.major}.${state.manifest.minor}</span>`;
     batchInput.disabled = false;
+    factoryInput.disabled = false;
     buildButton.disabled = false;
     refreshCapacity();
     showMessage("ROM recognised. Add WAV files to any sample slots.", "success");
@@ -476,6 +611,7 @@ romInput.addEventListener("change", async () => {
     state.rom = null;
     state.manifest = null;
     batchInput.disabled = true;
+    factoryInput.disabled = true;
     buildButton.disabled = true;
     romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span>";
     showMessage(error.message, "error");
@@ -513,6 +649,35 @@ async function loadFiles(fileList) {
 batchInput.addEventListener("change", async () => {
   await loadFiles(batchInput.files);
   batchInput.value = "";
+});
+
+factoryInput.addEventListener("change", async () => {
+  try {
+    const file = factoryInput.files[0];
+    if (!file) return;
+    const factory = parseFactory(await file.arrayBuffer());
+    for (const button of slotsElement.querySelectorAll(".remove")) button.click();
+    factory.slots.forEach((slot, index) => { if (slot) installSlot(index, slot); });
+    showMessage(`Imported ${file.name} with ${factory.slots.filter(Boolean).length} populated slots.`, "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  } finally {
+    factoryInput.value = "";
+  }
+});
+
+factoryExportButton.addEventListener("click", () => {
+  try {
+    const factory = createFactory(state.slots);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([factory], {type: "application/octet-stream"}));
+    link.download = "a26f-factory.a26factory";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    showMessage("Factory bank exported with PAL and NTSC sample variants.", "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
 });
 
 for (const eventName of ["dragenter", "dragover"]) {
