@@ -39,6 +39,10 @@ recommended electrical implementation.
 The Pico owns pacing and queues complete commands. Replaceable register writes
 may be coalesced so that only their newest queued value is transmitted.
 
+The Atari restarts a RIOT timer on every observed clock transition. A long idle
+period resets only partial-byte and pending-extended-command state; complete
+commands already in its 16-byte receive ring remain queued.
+
 ## One-byte commands
 
 Most commands use the upper three bits as an operation and the lower five bits
@@ -53,10 +57,10 @@ as its value.
 | `80-9F` | Set `AUDF1` | 5 bits |
 | `A0-BF` | Set voice 1 target amplitude/gate | low 4 bits |
 | `C0-DF` | Trigger sample slot | 5 bits |
-| `E0-E7` | Select extended envelope parameter | see below |
-| `E8-EF` | Extended envelope nibble | low 4 bits |
+| `E0-E3` | Select extended envelope parameter | see below |
+| `E4` | Reset/resynchronise command parser | no value |
+| `F0-FF` | Envelope value when a selection is pending | low 4 bits |
 | `F0` | Gate off the current gated sample |
-| `FF` | Reset/resynchronise command parser |
 
 Amplitude commands are envelope gates: a nonzero value begins attack toward
 that peak; zero begins release. The Pico filters stale MIDI note-off events.
@@ -66,14 +70,13 @@ that peak; zero begins release. The Pico filters stale MIDI note-off events.
 An envelope change is a validated two-byte pair:
 
 ```text
-11100CSS  select parameter
-11101VVVV set value
+111000CS  select parameter
+1111VVVV  set value
 ```
 
 - `C`: voice 0 or 1.
-- `SS=00`: attack.
-- `SS=01`: release.
-- other `SS` values are reserved.
+- `S=0`: attack.
+- `S=1`: release.
 - `VVVV`: time-table index 0-15.
 
 An idle timeout or unexpected byte cancels a pending parameter selection.
@@ -95,8 +98,17 @@ An idle timeout or unexpected byte cancels a pending parameter selection.
 Note-on velocity zero is note-off. A note-off only closes the gate if its note
 matches the currently active monophonic note on that MIDI channel.
 
-Default envelope indices are attack `1` and release `8`. Envelopes run at four
-ticks per PAL frame, or 200 Hz.
+Default envelope indices are attack `0` (instant) and release `1`. Envelopes
+run at two ticks per frame: 100 Hz on PAL and approximately 120 Hz on NTSC.
+
+Indices select ticks per one-step amplitude change:
+
+```text
+0: instant     1: 1       2: 2       3: 3
+4: 4           5: 6       6: 8       7: 12
+8: 16          9: 24     10: 32     11: 48
+12: 64        13: 96     14: 128    15: 192
+```
 
 ### Drum samples
 
@@ -111,10 +123,10 @@ ticks per PAL frame, or 200 Hz.
 
 ## Television timing
 
-- PAL: 312 scanlines, 50 Hz frames, 200 Hz envelope ticks, and approximately
+- PAL: 312 scanlines, 50 Hz frames, 100 Hz envelope ticks, and approximately
   7,812.5 four-bit PCM samples/second.
-- NTSC: 262 scanlines, approximately 60 Hz frames, build-adjusted envelope
-  timing, and approximately 7,867.1 four-bit PCM samples/second.
+- NTSC: 262 scanlines, approximately 60 Hz frames, approximately 120 Hz
+  envelope ticks, and approximately 7,867.1 four-bit PCM samples/second.
 - Four-bit PCM updates occur every two scanlines on both targets.
 - Samples are unsigned 4-bit amplitude values, packed two per ROM byte.
 - The ROM patch manifest identifies PAL or NTSC; the browser resamples to the

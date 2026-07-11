@@ -17,4 +17,5 @@ INPT5   = $0D
 
 SWCHA   = $0280
 SWACNT  = $0281
-
+TIMINT  = $0285
+TIM64T  = $0296

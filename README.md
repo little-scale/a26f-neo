@@ -19,9 +19,10 @@ The project is split into four parts:
 
 ## Current milestone
 
-The first milestone is a 4 KiB PAL diagnostic ROM. It provides a stable PAL
-display, background-colour activity feedback, and a controller-port-1 TIA
-sound check. The serial receiver and F4 sample ROM build on this kernel.
+The 4 KiB diagnostic ROM provides stable PAL and NTSC displays, background
+activity feedback, a five-bank controller-port-1 sound check, a scanline-safe
+controller-port-2 serial receiver, and two AR envelope engines. The production
+F4 sample ROM builds on this kernel.
 
 ## Build the diagnostic ROMs
 

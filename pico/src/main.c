@@ -14,7 +14,8 @@ enum {
     CMD_AUDV1 = 0xA0,
     CMD_SAMPLE_TRIGGER = 0xC0,
     CMD_ENV_SELECT = 0xE0,
-    CMD_ENV_VALUE = 0xE8,
+    CMD_PARSER_RESET = 0xE4,
+    CMD_ENV_VALUE = 0xF0,
     CMD_SAMPLE_GATE_OFF = 0xF0,
 };
 
@@ -38,7 +39,7 @@ static uint8_t command_base(uint8_t voice, uint8_t voice0, uint8_t voice1) {
 }
 
 static void set_envelope(uint8_t voice, uint8_t parameter, uint8_t value) {
-    const uint8_t select = CMD_ENV_SELECT | ((voice & 1u) << 2u) | (parameter & 3u);
+    const uint8_t select = CMD_ENV_SELECT | ((voice & 1u) << 1u) | (parameter & 1u);
     const uint8_t data = CMD_ENV_VALUE | ((value >> 3u) & 0x0Fu);
     a26f_link_enqueue_pair(select, data);
 }
@@ -144,6 +145,12 @@ int main(void) {
         tud_task();
         midi_task();
         a26f_link_task();
+
+        if (a26f_link_take_overflow()) {
+            // If this enqueue also finds the queue full, the overflow flag is
+            // set again and the reset is retried on a later pass.
+            a26f_link_enqueue(CMD_PARSER_RESET);
+        }
 
         if (midi_activity) {
             board_led_write(true);

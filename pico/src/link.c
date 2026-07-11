@@ -85,8 +85,10 @@ bool a26f_link_enqueue_pair(uint8_t first, uint8_t second) {
     return true;
 }
 
-bool a26f_link_overflowed(void) {
-    return queue_overflow;
+bool a26f_link_take_overflow(void) {
+    const bool result = queue_overflow;
+    queue_overflow = false;
+    return result;
 }
 
 void a26f_link_task(void) {
@@ -131,4 +133,3 @@ void a26f_link_task(void) {
             return;
     }
 }
-
