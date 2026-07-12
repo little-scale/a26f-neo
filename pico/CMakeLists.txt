@@ -8,21 +8,32 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-add_executable(a26f_neo
-    src/link.c
-    src/main.c
-    src/usb_descriptors.c
-)
+function(add_a26f_firmware target inversion product_name)
+    add_executable(${target}
+        src/link.c
+        src/main.c
+        src/usb_descriptors.c
+    )
 
-target_include_directories(a26f_neo PRIVATE src)
+    target_include_directories(${target} PRIVATE src)
+    target_compile_definitions(${target} PRIVATE
+        A26F_LINK_OUTPUT_INVERTED=${inversion}
+        A26F_USB_PRODUCT=\"${product_name}\"
+    )
 
-target_link_libraries(a26f_neo PRIVATE
-    pico_stdlib
-    tinyusb_device
-    tinyusb_board
-)
+    target_link_libraries(${target} PRIVATE
+        pico_stdlib
+        tinyusb_device
+        tinyusb_board
+    )
 
-pico_enable_stdio_uart(a26f_neo 0)
-pico_enable_stdio_usb(a26f_neo 0)
-pico_add_extra_outputs(a26f_neo)
+    pico_enable_stdio_uart(${target} 0)
+    pico_enable_stdio_usb(${target} 0)
+    pico_add_extra_outputs(${target})
+endfunction()
 
+# Recommended for the documented two-NPN open-collector interface.
+add_a26f_firmware(a26f_neo_npn 1 "A26F NEO NPN")
+
+# For a suitable interface which does not invert the Pico GPIO levels.
+add_a26f_firmware(a26f_neo_noninverting 0 "A26F NEO Non-Inverting")

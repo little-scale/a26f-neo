@@ -25,6 +25,10 @@ Set it to `1` for the NPN interface and `0` only for a suitable non-inverting
 3.3 V-to-5 V interface. Direct connection to the Atari inputs is not the
 recommended electrical implementation.
 
+Standard builds are labelled `a26f_neo_npn.uf2` (`1`) and
+`a26f_neo_noninverting.uf2` (`0`). Both produce the same logical wire protocol
+and use the same Atari ROM.
+
 ## Bit transfer
 
 - Bytes are sent most-significant bit first.

@@ -104,9 +104,15 @@ cmake -S pico -B pico/build -DPICO_BOARD=pico
 cmake --build pico/build
 ```
 
-Flash `pico/build/a26f_neo.uf2` by holding BOOTSEL while connecting the board,
-then copying the UF2 onto the mounted `RPI-RP2` drive. It reconnects as the
-class-compliant MIDI device **A26F NEO**.
+The build creates two explicitly labelled firmware images:
+
+| UF2 | Interface | USB MIDI name |
+|---|---|---|
+| `a26f_neo_npn.uf2` | Recommended two-NPN open-collector stages | `A26F NEO NPN` |
+| `a26f_neo_noninverting.uf2` | Suitable non-inverting level shifter | `A26F NEO Non-Inverting` |
+
+Hold BOOTSEL while connecting the board, then copy the appropriate UF2 onto
+the mounted `RPI-RP2` drive.
 
 ## Offline sample and factory tool
 
@@ -137,8 +143,9 @@ The recommended link uses two NPN open-collector stages:
 | Clock | GP3 | DB9 pin 1 |
 | Ground | GND | DB9 pin 8 |
 
-The two transistor stages invert the signals, so the default firmware setting
-is `A26F_LINK_OUTPUT_INVERTED 1`. See the [manual](docs/manual.md) before wiring.
+The two transistor stages invert the signals, so use the `npn` UF2. The
+`noninverting` UF2 is only for a suitable interface which preserves GPIO
+polarity. See the [manual](docs/manual.md) before wiring.
 
 ## MIDI summary
 

@@ -33,6 +33,11 @@ The NPN stages invert both link signals. Build the firmware with:
 #define A26F_LINK_OUTPUT_INVERTED 1
 ```
 
+The standard build labels this image `a26f_neo_npn.uf2`. The alternate
+`a26f_neo_noninverting.uf2` sets the flag to `0` and must only be used with a
+suitable interface that preserves GPIO polarity. The Atari ROM is identical
+for both arrangements.
+
 ## Pico board
 
 The selected board is an RP2040 Pico-compatible 40-pin module with USB-C. It
@@ -46,4 +51,3 @@ Default GPIO allocation:
 
 - GP2: data
 - GP3: clock
-

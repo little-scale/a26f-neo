@@ -100,14 +100,14 @@ Connections:
 5. Both transistor emitters to Pico GND.
 6. Pico GND to Atari port 2 pin 8.
 
-The stages invert both signals. The supplied firmware therefore uses:
+The stages invert both signals. Use `a26f_neo_npn.uf2`, which is compiled with:
 
 ```c
 #define A26F_LINK_OUTPUT_INVERTED 1
 ```
 
-Only change this to `0` when using a suitable non-inverting level-shifting
-interface.
+Use `a26f_neo_noninverting.uf2` only with a suitable level-shifting interface
+that preserves the Pico GPIO polarity. Both UF2 files use the same Atari ROM.
 
 ## 5. Atari ROMs
 
@@ -144,16 +144,21 @@ evaluating timing or pitch.
 
 ## 6. Flashing the Pico
 
-Build output is `pico/build/a26f_neo.uf2` unless another build directory was
-chosen.
+Two UF2 files are produced unless another build directory was chosen:
+
+| UF2 | Compile-time inversion | USB MIDI name |
+|---|---:|---|
+| `a26f_neo_npn.uf2` | `1` | `A26F NEO NPN` |
+| `a26f_neo_noninverting.uf2` | `0` | `A26F NEO Non-Inverting` |
 
 1. Disconnect the Pico.
 2. Hold the BOOTSEL button.
 3. Connect the Pico to the computer by USB.
 4. Release BOOTSEL after the `RPI-RP2` drive appears.
-5. Copy `a26f_neo.uf2` to that drive.
+5. Copy the UF2 matching the electrical interface to that drive.
 6. The board reboots automatically.
-7. Confirm that **A26F NEO** appears as a MIDI device.
+7. Confirm that **A26F NEO NPN** or **A26F NEO Non-Inverting** appears as a
+   MIDI device.
 
 The firmware does not require a serial driver or MIDI driver on operating
 systems that support class-compliant USB MIDI.
@@ -180,7 +185,7 @@ test the physical Pico-to-Atari link.
 2. Power everything off and inspect the three-wire interface.
 3. Connect the Pico interface to controller port 2.
 4. Power the Atari and connect the Pico to the computer by USB.
-5. Select **A26F NEO** as a MIDI output in the DAW.
+5. Select the labelled **A26F NEO** MIDI output in the DAW.
 6. Send a channel 1 note and confirm voice 0 audio and colour response.
 7. Send channel 2 and confirm voice 1.
 8. Send channel 10 note 32 and confirm sample slot 0.
@@ -428,7 +433,8 @@ The generated deliverable is `web/a26f-rom-patcher.html`.
 - Try another USB data cable; many USB cables provide power only.
 - Reflash the UF2 using BOOTSEL.
 - Confirm the firmware was built for `PICO_BOARD=pico`.
-- Check the operating system's MIDI device list for **A26F NEO**.
+- Check the MIDI device list for **A26F NEO NPN** or
+  **A26F NEO Non-Inverting**.
 
 ### Pico LED reacts but Atari does not
 
@@ -437,7 +443,8 @@ The generated deliverable is `web/a26f-rom-patcher.html`.
 - Confirm GP2 is data and GP3 is clock.
 - Confirm transistor collector/emitter orientation.
 - Confirm both 4.7 kΩ base resistors.
-- Confirm `A26F_LINK_OUTPUT_INVERTED` is `1` for the NPN stages.
+- Confirm the `npn` UF2 is used with the two-NPN stages, or the `noninverting`
+  UF2 with a suitable non-inverting interface.
 - Confirm the Atari ROM is the current A26F build.
 
 ### Notes stick
