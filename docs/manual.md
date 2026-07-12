@@ -413,6 +413,21 @@ node web/build.mjs
 
 The generated deliverable is `web/a26f-rom-patcher.html`.
 
+### Software preflight
+
+Before a hardware session, run:
+
+```sh
+make test
+make test-pico
+make test-stella
+```
+
+The first target rebuilds the Atari and browser outputs and runs deterministic
+ROM/factory/converter tests. `test-pico` uses an isolated build directory and
+checks both UF2 identities with picotool. `test-stella` verifies that all four
+empty/populated PAL/NTSC production images are recognised as 32K F4 ROMs.
+
 ## 14. Troubleshooting
 
 ### Stella plays synth sounds but not samples
@@ -470,6 +485,7 @@ The generated deliverable is `web/a26f-rom-patcher.html`.
 
 ## 15. Technical reference
 
+- [PAL hardware bring-up checklist](hardware-test-checklist.md)
 - [Three-wire electrical interface](../hardware/wiring.md)
 - [Wire and MIDI protocol](../protocol/protocol.md)
 - [ROM format](../protocol/rom-format.md)

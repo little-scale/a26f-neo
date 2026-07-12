@@ -46,6 +46,7 @@ it never changes the link pins to outputs.
 ## Start here
 
 - [User and builder manual](docs/manual.md)
+- [PAL hardware bring-up checklist](docs/hardware-test-checklist.md)
 - [Safe three-wire interface](hardware/wiring.md)
 - [MIDI and wire protocol](protocol/protocol.md)
 - [Patchable ROM format](protocol/rom-format.md)
@@ -171,6 +172,14 @@ Samples ignore velocity. Note-on with velocity zero is treated as note-off.
 PAL/NTSC Atari images, F4 stubs, manifests, directories, factory checksums,
 browser conversion, and Pico firmware builds are verified automatically. The
 next project milestone is end-to-end validation on original PAL hardware.
+
+Run the software preflight checks with:
+
+```sh
+make test          # ROM, factory, patcher, WAV and corruption tests
+make test-pico     # clean dual-UF2 build plus picotool/USB-name checks
+make test-stella   # PAL/NTSC and F4 mapper smoke matrix
+```
 
 ## Author
 
