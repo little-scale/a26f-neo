@@ -10,7 +10,7 @@ SRC := src/main.asm
 
 .PHONY: all clean verify factory
 
-all: $(PAL_ROM) $(NTSC_ROM) $(PAL_F4) $(NTSC_F4) verify
+all: $(PAL_ROM) $(NTSC_ROM) $(PAL_F4) $(NTSC_F4) $(PAL_FACTORY_ROM) $(NTSC_FACTORY_ROM) verify
 
 $(PAL_ROM): $(SRC) src/vcs.inc
 	@mkdir -p build

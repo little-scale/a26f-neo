@@ -1,4 +1,4 @@
-import {createFactory, decodeWav, FACTORY_RATES, parseFactory, parseManifest, patchRom, processAudio, SLOT_COUNT} from "./core.js";
+import {createFactory, decodeWav, extractRomSlots, FACTORY_RATES, parseFactory, parseManifest, patchRom, processAudio, SLOT_COUNT} from "./core.js";
 
 const state = {
   rom: null,
@@ -182,20 +182,25 @@ romInput.addEventListener("change", async () => {
     if (!file) return;
     state.rom = new Uint8Array(await file.arrayBuffer());
     state.manifest = parseManifest(state.rom);
-    state.slots.forEach((slot, index) => { if (slot?.variants) installSlot(index, slot); });
+    for (const button of slotsElement.querySelectorAll(".remove")) button.click();
+    const existingSlots = extractRomSlots(state.rom, state.manifest);
+    existingSlots.forEach((slot, index) => { if (slot) installSlot(index, slot); });
     romSummary.innerHTML = `<strong>${file.name}</strong><span>${state.manifest.tv} · ${state.manifest.sampleRate.toFixed(1)} Hz · 32K F4 · format ${state.manifest.major}.${state.manifest.minor}</span>`;
     batchInput.disabled = false;
     factoryInput.disabled = false;
     buildButton.disabled = false;
     refreshCapacity();
-    showMessage("ROM recognised. Add WAV files to any sample slots.", "success");
+    const existingCount = existingSlots.filter(Boolean).length;
+    showMessage(existingCount
+      ? `ROM recognised with ${existingCount} existing sample slots. They will be preserved unless changed.`
+      : "ROM recognised. Add WAV files to any sample slots.", "success");
   } catch (error) {
     state.rom = null;
     state.manifest = null;
     batchInput.disabled = true;
     factoryInput.disabled = true;
     buildButton.disabled = true;
-    romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span>";
+    romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an A26F NEO 32K ROM.</span>";
     showMessage(error.message, "error");
   }
 });

@@ -13,7 +13,7 @@
     <section class="panel rom-panel">
       <div><span class="step">1</span><h2>Choose the base ROM</h2><p>The patcher checks the ROM version and uses its PAL or NTSC sample rate.</p></div>
       <label class="primary-file"><input id="rom-input" type="file" accept=".f4,.bin,.rom,application/octet-stream"><span>Choose ROM</span></label>
-      <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span></div>
+      <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an A26F NEO 32K ROM.</span></div>
     </section>
 
     <section class="panel controls">
@@ -129,6 +129,38 @@ function parseManifest(input) {
     throw new Error("The ROM sample regions do not match format 1.0.");
   }
   return manifest;
+}
+
+function extractRomSlots(input, manifest) {
+  const rom = input instanceof Uint8Array ? input : new Uint8Array(input);
+  return Array.from({length: SLOT_COUNT}, (_, index) => {
+    const entry = manifest.directoryOffset + index * manifest.entrySize;
+    const bank = rom[entry];
+    if (bank === 0xff) return null;
+    const address = readU16(rom, entry + 1);
+    const length = readU16(rom, entry + 3);
+    const offset = address - 0xf000;
+    if (bank >= manifest.regions.length || offset < 0 || length < 1 ||
+        length > manifest.regions[bank].length || offset + length > manifest.regions[bank].length) {
+      throw new Error(`ROM sample slot ${index} has an invalid directory entry.`);
+    }
+    const packed = rom.slice(
+      manifest.regions[bank].offset + offset,
+      manifest.regions[bank].offset + offset + length,
+    );
+    const sampleCount = length * 2;
+    return {
+      name: `ROM slot ${String(index).padStart(2, "0")}`,
+      gated: (rom[entry + 5] & FLAG_GATED) !== 0,
+      variants: {
+        [manifest.tv]: {
+          packed,
+          sampleCount,
+          duration: sampleCount / manifest.sampleRate,
+        },
+      },
+    };
+  });
 }
 
 function decodeWav(arrayBuffer) {
@@ -600,20 +632,25 @@ romInput.addEventListener("change", async () => {
     if (!file) return;
     state.rom = new Uint8Array(await file.arrayBuffer());
     state.manifest = parseManifest(state.rom);
-    state.slots.forEach((slot, index) => { if (slot?.variants) installSlot(index, slot); });
+    for (const button of slotsElement.querySelectorAll(".remove")) button.click();
+    const existingSlots = extractRomSlots(state.rom, state.manifest);
+    existingSlots.forEach((slot, index) => { if (slot) installSlot(index, slot); });
     romSummary.innerHTML = `<strong>${file.name}</strong><span>${state.manifest.tv} · ${state.manifest.sampleRate.toFixed(1)} Hz · 32K F4 · format ${state.manifest.major}.${state.manifest.minor}</span>`;
     batchInput.disabled = false;
     factoryInput.disabled = false;
     buildButton.disabled = false;
     refreshCapacity();
-    showMessage("ROM recognised. Add WAV files to any sample slots.", "success");
+    const existingCount = existingSlots.filter(Boolean).length;
+    showMessage(existingCount
+      ? `ROM recognised with ${existingCount} existing sample slots. They will be preserved unless changed.`
+      : "ROM recognised. Add WAV files to any sample slots.", "success");
   } catch (error) {
     state.rom = null;
     state.manifest = null;
     batchInput.disabled = true;
     factoryInput.disabled = true;
     buildButton.disabled = true;
-    romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an unmodified A26F NEO 32K ROM.</span>";
+    romSummary.innerHTML = "<strong>No compatible ROM loaded</strong><span>Choose an A26F NEO 32K ROM.</span>";
     showMessage(error.message, "error");
   }
 });

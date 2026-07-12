@@ -88,6 +88,38 @@ export function parseManifest(input) {
   return manifest;
 }
 
+export function extractRomSlots(input, manifest) {
+  const rom = input instanceof Uint8Array ? input : new Uint8Array(input);
+  return Array.from({length: SLOT_COUNT}, (_, index) => {
+    const entry = manifest.directoryOffset + index * manifest.entrySize;
+    const bank = rom[entry];
+    if (bank === 0xff) return null;
+    const address = readU16(rom, entry + 1);
+    const length = readU16(rom, entry + 3);
+    const offset = address - 0xf000;
+    if (bank >= manifest.regions.length || offset < 0 || length < 1 ||
+        length > manifest.regions[bank].length || offset + length > manifest.regions[bank].length) {
+      throw new Error(`ROM sample slot ${index} has an invalid directory entry.`);
+    }
+    const packed = rom.slice(
+      manifest.regions[bank].offset + offset,
+      manifest.regions[bank].offset + offset + length,
+    );
+    const sampleCount = length * 2;
+    return {
+      name: `ROM slot ${String(index).padStart(2, "0")}`,
+      gated: (rom[entry + 5] & FLAG_GATED) !== 0,
+      variants: {
+        [manifest.tv]: {
+          packed,
+          sampleCount,
+          duration: sampleCount / manifest.sampleRate,
+        },
+      },
+    };
+  });
+}
+
 export function decodeWav(arrayBuffer) {
   const view = new DataView(arrayBuffer);
   const text = (offset, length) =>

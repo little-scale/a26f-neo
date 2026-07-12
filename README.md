@@ -77,8 +77,11 @@ Important outputs:
 - `atari/build/a26f-ntsc.f4`
 - `atari/build/a26f-pal-4k.bin`
 - `atari/build/a26f-ntsc-4k.bin`
+- `atari/build/a26f-pal-factory.bin`
+- `atari/build/a26f-ntsc-factory.bin`
 
-Build populated ROMs from the included factory bank:
+The normal build always creates populated PAL and NTSC ROMs from
+`factory/default.a26factory`. To rebuild only the factory outputs, use:
 
 ```sh
 make -C atari factory
@@ -131,6 +134,7 @@ required. It can:
 - Preview the actual converted 4-bit result
 - Set gated or one-shot mode per slot
 - Create a flashcart-compatible `.bin` ROM
+- Load and preserve samples already present in a populated A26F ROM
 - Import or export a checksummed `.a26factory` instrument bank
 
 ## Hardware summary

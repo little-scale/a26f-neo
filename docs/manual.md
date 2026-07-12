@@ -295,7 +295,8 @@ standalone local file and does not upload the ROM or audio.
 
 ### Create a custom ROM
 
-1. Choose the matching empty A26F PAL or NTSC F4 ROM.
+1. Choose a matching empty or factory-populated A26F PAL or NTSC ROM.
+   Existing sample slots are loaded into the editor and preserved by default.
 2. Choose multiple WAVs or drag them onto the drop area.
 3. Files are naturally sorted by filename into the first empty slots.
 4. Choose gated or one-shot mode for each slot.
@@ -320,6 +321,12 @@ option if that slot must be converted again.
 
 Samples may have different lengths. The tool assigns them to the seven payload
 banks and refuses an arrangement that cannot fit.
+
+When an existing ROM slot is imported, the ROM does not contain its original
+filename or exact odd/even source-sample count, so it is labelled `ROM slot NN`
+and previewed using its full packed-byte length. Its audio bytes and gate mode
+are preserved. Replace that slot with a WAV if fresh PAL and NTSC factory
+variants or a filename are required.
 
 ## 12. Factory banks
 
@@ -365,14 +372,15 @@ Requirements:
 - DASM
 - Node.js
 
-Build and verify all base ROMs:
+Build and verify all base ROMs and the default-factory populated ROMs:
 
 ```sh
 make -C atari clean all
 ```
 
-The verifier checks exact ROM sizes, PAL/NTSC manifests, empty base
-directories, and identical F4 common bankswitch stubs.
+The verifier checks exact ROM sizes, PAL/NTSC manifests, empty internal base
+directories, and identical F4 common bankswitch stubs. The default build also
+applies `factory/default.a26factory` to both television targets.
 
 Build factory-populated ROMs:
 
