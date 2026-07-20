@@ -2,7 +2,9 @@ LOCAL_PICO_TOOLCHAIN := $(if $(wildcard pico/toolchain/bin/arm-none-eabi-gcc),-D
 PICO_CMAKE_ARGS ?= $(LOCAL_PICO_TOOLCHAIN)
 PICO_TEST_BUILD ?= pico/build-test
 
-.PHONY: all test test-pico test-stella clean
+VERSION := $(shell tr -d '\r\n' < VERSION)
+
+.PHONY: all test test-pico test-stella release clean
 
 all:
 	$(MAKE) -C atari all
@@ -19,7 +21,14 @@ test-pico:
 	@node tools/verify-pico-build.mjs $(PICO_TEST_BUILD)
 
 test-stella:
+	@$(MAKE) -C atari all
 	@node tools/stella-smoke.mjs
+
+release: test test-stella
+	@cmake -S pico -B pico/build-pico2w -DPICO_BOARD=pico2_w $(PICO_CMAKE_ARGS)
+	@cmake --build pico/build-pico2w
+	@node tools/verify-pico-build.mjs pico/build-pico2w pico2_w
+	@node tools/build-release.mjs $(VERSION)
 
 clean:
 	$(MAKE) -C atari clean

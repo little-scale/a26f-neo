@@ -11,6 +11,9 @@ pico/build*/
 pico/lib/pico-sdk/
 pico/toolchain/
 
+# Generated release bundles.
+dist/
+
 # Editor and temporary files.
 *.swp
 *~

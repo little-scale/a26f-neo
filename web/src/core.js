@@ -1,6 +1,6 @@
 export const MAGIC = "A26FSMP\0";
 export const FORMAT_MAJOR = 1;
-export const FORMAT_MINOR = 0;
+export const FORMAT_MINOR = 1;
 export const SLOT_COUNT = 32;
 export const FLAG_GATED = 1;
 export const FACTORY_MAGIC = "A26FFACT";
@@ -83,7 +83,7 @@ export function parseManifest(input) {
     });
   }
   if (manifest.regions.some((r, i) => r.offset !== i * 0x1000 || r.length !== 0x0f00)) {
-    throw new Error("The ROM sample regions do not match format 1.0.");
+    throw new Error(`The ROM sample regions do not match format ${FORMAT_MAJOR}.${FORMAT_MINOR}.`);
   }
   return manifest;
 }
@@ -240,7 +240,8 @@ export function processAudio(decoded, targetRate, options = {}) {
 
   let peak = 0;
   for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
-  const gain = options.normalize === false || peak === 0 ? 1 : 0.98 / peak;
+  const normalizeGain = options.normalize === false || peak === 0 ? 1 : 0.98 / peak;
+  const userGain = 10 ** ((options.gainDb ?? 0) / 20);
   const fadeSamples = Math.min(Math.floor(samples.length / 2), Math.round(targetRate * 0.003));
   const packed = new Uint8Array(Math.ceil(samples.length / 2));
   for (let i = 0; i < samples.length; i += 1) {
@@ -249,7 +250,12 @@ export function processAudio(decoded, targetRate, options = {}) {
     if (fadeSamples > 0 && i >= samples.length - fadeSamples) {
       envelope = Math.min(envelope, (samples.length - 1 - i) / fadeSamples);
     }
-    const signed = Math.max(-1, Math.min(1, samples[i] * gain * envelope));
+    // Global gain follows optional normalization and directly drives the tanh
+    // stage. Apply the edge envelope afterward so fades remain clean even at
+    // high drive settings.
+    let signed = samples[i] * normalizeGain * userGain;
+    if (options.tanh === true) signed = Math.tanh(signed);
+    signed = Math.max(-1, Math.min(1, signed * envelope));
     const nibble = Math.max(0, Math.min(15, Math.round((signed + 1) * 7.5)));
     if ((i & 1) === 0) packed[i >> 1] = nibble << 4;
     else packed[i >> 1] |= nibble;

@@ -1,4 +1,4 @@
-# A26F sample ROM format 1.0
+# A26F sample ROM format 1.1
 
 The patchable production image is a 32 KiB Atari F4 bankswitched ROM. Banks
 0–6 hold sample payloads; bank 7 holds the player, directory, manifest, common
@@ -11,7 +11,7 @@ bankswitch stub, and vectors.
 - The playback rate is declared by the ROM: 7,812.5 Hz PAL or approximately
   7,867.1 Hz NTSC.
 - Each of banks 0–6 exposes 3,840 patchable bytes at logical `$F000–$FEFF`.
-- One sample cannot cross a payload-bank boundary in format 1.0, so its maximum
+- One sample cannot cross a payload-bank boundary in format 1.1, so its maximum
   packed length is 3,840 bytes (7,680 samples, about 0.98 seconds).
 - Total payload capacity is 26,880 bytes (53,760 samples, about 6.9 seconds).
 
@@ -39,7 +39,7 @@ little-endian.
 | Offset | Size | Meaning |
 |---:|---:|---|
 | 0 | 8 | `A26FSMP` followed by zero |
-| 8 | 2 | Format major, minor (`1, 0`) |
+| 8 | 2 | Format major, minor (`1, 1`) |
 | 10 | 1 | TV: 0 PAL, 1 NTSC |
 | 11 | 1 | Mapper ID: 4 = F4 |
 | 12 | 1 | Bank count: 8 |
@@ -59,3 +59,8 @@ little-endian.
 The offline patcher requires an exact supported major/minor version and checks
 the mapper, ROM size, directory, slot count, encoding, and payload regions
 before changing a copy of the source ROM.
+
+The PAL and NTSC production images use the same format 1.1 manifest and sample
+layout. Both include the receive-history display and can be loaded, edited,
+and exported by the offline browser tool. Patching changes sample banks and
+directory entries without replacing player code.

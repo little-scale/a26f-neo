@@ -1,32 +1,32 @@
 import {readFile} from "node:fs/promises";
 
-const [pal4kPath, ntsc4kPath, palF4Path, ntscF4Path] = process.argv.slice(2);
-if (!ntscF4Path) throw new Error("Pass PAL/NTSC 4K and PAL/NTSC F4 ROM paths.");
+import {extractRomSlots, parseManifest} from "../web/src/core.js";
 
-const files = await Promise.all(
-  [pal4kPath, ntsc4kPath, palF4Path, ntscF4Path].map((path) => readFile(path)),
-);
-if (files[0].length !== 4096 || files[1].length !== 4096 ||
-    files[2].length !== 32768 || files[3].length !== 32768) {
-  throw new Error("Unexpected ROM byte size.");
+const paths = process.argv.slice(2);
+if (paths.length !== 2) {
+  throw new Error("Pass the PAL and NTSC production ROM paths.");
 }
 
-for (const [index, rom] of files.slice(2).entries()) {
-  if (rom.subarray(0x7e00, 0x7e08).toString("binary") !== "A26FSMP\0") {
-    throw new Error("Patch manifest magic is missing.");
+for (const [index, path] of paths.entries()) {
+  const rom = new Uint8Array(await readFile(path));
+  if (rom.length !== 32768) {
+    throw new Error(`${path} is not a 32 KiB F4 ROM.`);
   }
-  if (rom[0x7e08] !== 1 || rom[0x7e09] !== 0 || rom[0x7e0a] !== index) {
-    throw new Error("Patch manifest version or television target is incorrect.");
+
+  const manifest = parseManifest(rom);
+  const expectedTv = index === 0 ? "PAL" : "NTSC";
+  if (manifest.tv !== expectedTv) {
+    throw new Error(`${path} identifies as ${manifest.tv}, expected ${expectedTv}.`);
   }
+
   const reference = rom.subarray(0x0f00, 0x1000);
   for (let bank = 1; bank < 8; bank += 1) {
-    if (!reference.equals(rom.subarray(bank * 0x1000 + 0x0f00, (bank + 1) * 0x1000))) {
-      throw new Error(`F4 common stub differs in bank ${bank}.`);
+    const stub = rom.subarray(bank * 0x1000 + 0x0f00, (bank + 1) * 0x1000);
+    if (stub.some((byte, offset) => byte !== reference[offset])) {
+      throw new Error(`F4 common stub differs in bank ${bank} of ${path}.`);
     }
   }
-  for (let slot = 0; slot < 32; slot += 1) {
-    if (rom[0x7d00 + slot * 8] !== 0xff) throw new Error("Base ROM directory is not empty.");
-  }
-}
 
-console.log("Verified ROM sizes, manifests, directories, and F4 common stubs");
+  const sampleCount = extractRomSlots(rom, manifest).filter(Boolean).length;
+  console.log(`Verified ${path}: ${expectedTv} F4, ${sampleCount} populated sample slots`);
+}

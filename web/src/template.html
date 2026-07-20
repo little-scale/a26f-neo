@@ -10,7 +10,7 @@
   <header><div class="mark">A26F</div><div><h1>NEO Sample Patcher</h1><p>Build a custom Atari 2600 drum ROM—entirely offline.</p></div></header>
   <main>
     <section class="panel rom-panel">
-      <div><span class="step">1</span><h2>Choose the base ROM</h2><p>The patcher checks the ROM version and uses its PAL or NTSC sample rate.</p></div>
+      <div><span class="step">1</span><h2>Choose the ROM</h2><p>The patcher checks the production ROM version and uses its PAL or NTSC sample rate.</p></div>
       <label class="primary-file"><input id="rom-input" type="file" accept=".f4,.bin,.rom,application/octet-stream"><span>Choose ROM</span></label>
       <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an A26F NEO 32K ROM.</span></div>
     </section>
@@ -23,6 +23,8 @@
         <button id="factory-export" class="quiet" type="button" disabled>Export factory</button>
         <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
         <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
+        <label class="gain-control"><span>Gain <output id="gain-value">0.0 dB</output></span><input id="gain" type="range" min="0" max="60" step="0.5" value="0"></label>
+        <label class="toggle"><input id="tanh" type="checkbox"><span>Tanh</span></label>
         <button id="clear-button" class="quiet" type="button">Clear all</button>
       </div>
       <div id="drop-zone" class="drop-zone">
@@ -37,9 +39,9 @@
       <div><span class="step">3</span><h2>Create the patched ROM</h2><p>Your original ROM and audio never leave this browser.</p></div>
       <button id="build-button" class="build" type="button" disabled>Create ROM</button>
     </section>
-    <div id="message" class="message" role="status">Choose a base ROM to begin.</div>
+    <div id="message" class="message" role="status">Choose a PAL or NTSC ROM to begin.</div>
   </main>
-  <footer>A26F NEO · format 1.0 · no network connection required</footer>
+  <footer>A26F NEO /*__VERSION__*/ · ROM format 1.1 · no network connection required</footer>
   <script type="module">/*__SCRIPT__*/</script>
 </body>
 </html>

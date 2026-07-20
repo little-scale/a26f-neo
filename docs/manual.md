@@ -1,13 +1,18 @@
 # A26F NEO Manual
 
-Version: development main branch  
-Primary television target: PAL50  
+Product release: v0.1
+
+Primary television target: PAL50
+
 Secondary target: NTSC
+
+Product numbering is independent of the protocol and file-format versions.
+The next planned releases are v0.11, v0.12, and so on.
 
 ## 1. Introduction
 
 A26F NEO is a MIDI and sample-playback system for the Atari 2600. A
-Pico-compatible RP2040 board appears to a computer as a class-compliant USB
+Pico-family board appears to a computer as a class-compliant USB
 MIDI device. It translates MIDI into a compact serial stream delivered to
 controller port 2. A custom Atari ROM receives that stream and controls both
 TIA audio voices.
@@ -15,12 +20,12 @@ TIA audio voices.
 The instrument provides:
 
 - Two monophonic TIA synth voices
-- MIDI-controlled attack and release envelopes
+- Switchable attack-hold-release and attack-decay envelopes
 - 32 wrapped drum-sample slots
 - Four-bit ROM-resident sample playback
 - Gated and one-shot samples
 - Joystick-only soundcheck operation
-- Audio-reactive background colour
+- Sixteen-band receive-history visualization with no black rows
 - Offline ROM and factory-bank creation
 
 The Pico does not act as a USB host. It must be connected to a computer or
@@ -33,24 +38,28 @@ other USB host that sends MIDI to **A26F NEO**.
 - Power off the Atari and disconnect the Pico before changing wiring.
 - Do not connect Atari controller-port 5 V to the Pico.
 - Do not connect Pico GPIO directly to Atari controller-port inputs.
-- Use the documented two-transistor open-collector interface.
+- Use one of the documented NPN or TXS0108E level-shifting interfaces.
 - Confirm the pinout of the exact NPN transistors being used. A 2N3904 and a
   BC547 commonly have different lead arrangements.
 - Check DB9 numbering from the connector side you are actually viewing.
 - A26F NEO shares ground between the USB-powered Pico and Atari port 2.
 
-The design is unidirectional. The Pico controls two NPN transistor bases. The
-Atari's existing controller-port pull-ups create the released/high state, while
-the transistors can safely pull the inputs low.
+The design is unidirectional. With the NPN interface, the Pico controls two
+transistor bases and the Atari's controller-port pull-ups create the
+released/high state. With the TXS0108E interface, the translator provides the
+3.3 V-to-5 V boundary and GP4 keeps it disabled until data and clock are
+initialized. The Atari ROM only reads these pins in either arrangement.
 
 ## 3. Required equipment
 
 - Original Atari 2600 or compatible system
 - PAL console and PAL ROM for the primary configuration, or matching NTSC pair
-- UnoCart-compatible SD flashcart with the correct PAL/NTSC setting
-- RP2040 Pico-compatible 40-pin board, configured as `PICO_BOARD=pico`
-- Two small-signal NPN transistors, such as 2N3904 or BC547
-- Two 4.7 kΩ base resistors
+- F4-capable SD flashcart with the correct PAL/NTSC setting; current testing
+  uses a Superior 4 Bit Flashcard V2
+- Raspberry Pi Pico-family board; the current hardware is a Pico 2 W built as
+  `PICO_BOARD=pico2_w`
+- Either two small-signal NPN transistors plus two 4.7 kΩ base resistors, or a
+  TXS0108E module with suitable decoupling and OE pulldown
 - Atari-compatible male DB9 plug or controller cable
 - USB data cable
 - Computer with a MIDI-capable DAW, sequencer, or test utility
@@ -68,18 +77,21 @@ Optional but recommended:
 
 | DB9 pin | Atari function | A26F function |
 |---:|---|---|
-| 1 | Up, `SWCHA` bit 3 | Clock |
-| 2 | Down, `SWCHA` bit 2 | Data |
+| 1 | Up, `SWCHA` bit 0 | Clock |
+| 2 | Down, `SWCHA` bit 1 | Data |
 | 8 | Ground | Common ground |
 
-No other controller-port connection is required.
+No other controller-port connection is required for the NPN interface. The
+TXS0108E interface also uses controller-port pin 7 for its 5 V-side supply.
 
 ### Pico GPIO
 
-| Pico signal | Default GPIO |
-|---|---:|
-| Data | GP2 |
-| Clock | GP3 |
+| Pico signal | GPIO | Pico header pin |
+|---|---:|---:|
+| Data | GP2 | 4 |
+| Clock | GP3 | 5 |
+| TXS0108E output enable | GP4 | 6 |
+| TXS0108E VCCA supply | `3V3(OUT)` | 36 |
 
 ### Transistor stages
 
@@ -109,27 +121,47 @@ The stages invert both signals. Use `a26f_neo_npn.uf2`, which is compiled with:
 Use `a26f_neo_noninverting.uf2` only with a suitable level-shifting interface
 that preserves the Pico GPIO polarity. Both UF2 files use the same Atari ROM.
 
+### TXS0108E non-inverting interface
+
+The non-inverting UF2 controls the TXS0108E output-enable input from GP4. Power
+the translator's low-voltage rail from the Pico's regulated `3V3(OUT)` pin.
+
+| TXS0108E connection | Connect to |
+|---|---|
+| `VCCA` / `VA` | Pico `3V3(OUT)`, header pin 36 |
+| `OE` | Pico GP4, header pin 6; add 10 kOhm to ground if the module has no OE pulldown |
+| `A1` | Pico GP2 data |
+| `A2` | Pico GP3 clock |
+| `VCCB` / `VB` | Atari controller port pin 7, +5 V |
+| `B1` | Atari controller port 2 pin 2, data |
+| `B2` | Atari controller port 2 pin 1, clock |
+| `GND` | Pico ground and Atari controller port 2 pin 8 |
+
+GP4 holds the translator disabled while GP2 and GP3 are initialized, then goes
+high to enable it. The NPN UF2 does not configure GP4. The TXS0108E module
+should include local supply decoupling; otherwise add 100 nF from VCCA to
+ground and 100 nF from VCCB to ground close to the IC. Use Pico header pin 36,
+labelled `3V3(OUT)`; do not use the adjacent `3V3_EN` pin.
+
+This arrangement uses Atari pin 7 for the translator's 5 V side, so it is a
+four-wire controller-port interface. Do not substitute a TXB0108 module and do
+not connect Pico GPIO directly to the Atari inputs.
+
 ## 5. Atari ROMs
 
 ### Production ROMs
 
-The production player is a 32 KiB F4 bankswitched image.
+The production player is a 32 KiB F4 bankswitched image. There are exactly two
+ROM outputs:
 
 | Output | Purpose |
 |---|---|
-| `a26f-pal.f4` | Empty patchable PAL production ROM |
-| `a26f-ntsc.f4` | Empty patchable NTSC production ROM |
-| `a26f-pal-factory.bin` | PAL ROM populated from the selected factory bank |
-| `a26f-ntsc-factory.bin` | NTSC ROM populated from the selected factory bank |
+| `a26f-pal.bin` | PAL ROM, default factory samples, and receive-history display |
+| `a26f-ntsc.bin` | NTSC ROM, default factory samples, and receive-history display |
 
-The `.f4` extension is convenient for forcing Stella's F4 mapper. UnoCart-style
-flashcarts normally accept `.bin`, `.rom`, or `.a26`; the browser exports
-`.bin` by default.
-
-### Diagnostic ROMs
-
-The 4 KiB PAL and NTSC images exercise the display, controller soundcheck,
-serial receiver, and envelopes without sample bankswitching.
+Both images always contain the sixteen-band receive-history visualization and
+are populated from `factory/default.a26factory`. The offline browser can replace
+their samples and export another `.bin` without changing the player code.
 
 ### Flashcart setup
 
@@ -144,17 +176,20 @@ evaluating timing or pitch.
 
 ## 6. Flashing the Pico
 
-Two UF2 files are produced unless another build directory was chosen:
+Two production USB MIDI UF2 files are produced, along with the diagnostic
+images described below:
 
 | UF2 | Compile-time inversion | USB MIDI name |
 |---|---:|---|
 | `a26f_neo_npn.uf2` | `1` | `A26F NEO NPN` |
 | `a26f_neo_noninverting.uf2` | `0` | `A26F NEO Non-Inverting` |
 
+The current Pico 2 W builds are normally placed in `pico/build-pico2w/`.
+
 1. Disconnect the Pico.
 2. Hold the BOOTSEL button.
 3. Connect the Pico to the computer by USB.
-4. Release BOOTSEL after the `RPI-RP2` drive appears.
+4. Release BOOTSEL after the board's USB mass-storage boot drive appears.
 5. Copy the UF2 matching the electrical interface to that drive.
 6. The board reboots automatically.
 7. Confirm that **A26F NEO NPN** or **A26F NEO Non-Inverting** appears as a
@@ -166,13 +201,26 @@ systems that support class-compliant USB MIDI.
 The Pico's onboard LED responds to incoming USB MIDI activity. This confirms
 USB reception, not necessarily successful transfer to the Atari.
 
+### Diagnostic UF2 files
+
+The same Pico build includes two hardware-test images:
+
+| UF2 | Behaviour |
+|---|---|
+| `a26f_neo_link_test.uf2` | No USB MIDI; cycles GP2/GP3 through `00`, `10`, `01`, and `11` every 1.5 seconds |
+| `a26f_neo_protocol_test.uf2` | No USB MIDI; runs a six-second raw-pin preflight, then sends a repeating normal-speed tone/sample command sequence |
+
+The autonomous images can be powered from an isolated USB power bank when
+separating host-computer grounding from link problems. They target the
+non-inverting TXS0108E wiring and drive OE from GP4.
+
 ## 7. First tests
 
 ### Stella test
 
-1. Load the PAL or NTSC production/factory ROM in Stella.
+1. Load `a26f-pal.bin` or `a26f-ntsc.bin` in Stella.
 2. Confirm that Stella reports an F4 32K cartridge. If necessary, force
-   `Cart.Type` to `F4` or use the `.f4` extension.
+   `Cart.Type` to `F4`.
 3. Use the emulated left joystick for controller port 1.
 4. Test the four synth banks and sample bank described below.
 
@@ -182,7 +230,7 @@ test the physical Pico-to-Atari link.
 ### Hardware test sequence
 
 1. With the Pico disconnected, load a populated ROM and verify joystick audio.
-2. Power everything off and inspect the three-wire interface.
+2. Power everything off and inspect the selected controller-port interface.
 3. Connect the Pico interface to controller port 2.
 4. Power the Atari and connect the Pico to the computer by USB.
 5. Select the labelled **A26F NEO** MIDI output in the DAW.
@@ -190,6 +238,7 @@ test the physical Pico-to-Atari link.
 7. Send channel 2 and confirm voice 1.
 8. Send channel 10 note 32 and confirm sample slot 0.
 9. Test gated note-off behaviour.
+10. Confirm pitch and amplitude commands occupy separate history bands.
 
 ## 8. MIDI operation
 
@@ -202,23 +251,42 @@ MIDI channel numbers below use the usual user-facing numbering from 1 to 16.
 | Channel 1 | TIA voice 0 |
 | Channel 2 | TIA voice 1 |
 | CC1 | `AUDC = value >> 3` |
-| Note number | `AUDF = note >> 2` |
+| Note number | `AUDF = 31 - (note & 31)`; adjacent notes rise and wrap every 32 notes |
 | Note velocity | Peak `AUDV = velocity >> 3` |
+| Pitch bend | Changes only AUDF over its full range and clamps at 0 or 31 |
+| CC70 | Envelope mode: 0-63 attack-hold-release, 64-127 attack-decay |
 | CC73 | Attack index `value >> 3` |
-| CC72 | Release index `value >> 3` |
+| CC72 | Release/decay index `value >> 3` |
 
 Each synth voice is monophonic. Note-off only releases a voice when its pitch
 matches the currently active note. MIDI note-on with velocity zero is treated
-as note-off.
+as note-off. Both voices default to `AUDC = 4`, so a note is audible before any
+CC1 message is sent; CC1 replaces the default for its MIDI channel.
 
 The TIA is not chromatic in the conventional synthesizer sense. MIDI pitch is
 deliberately reduced to the 5-bit TIA frequency range, and the 16 `AUDC` values
 select very different tone/noise divider behaviours.
 
-### Attack/release envelopes
+Pitch bend centre is 8192. Upward bend lowers the divider and raises the
+audible pitch; downward bend raises the divider. The full wheel covers 32
+steps, clamps at the register limits, and never wraps. Bend changes only the
+pitch register and is retained when the next note is played.
 
-The note-on velocity sets the peak amplitude. Attack moves toward that peak,
-the note remains held while its MIDI gate is open, and note-off begins release.
+The Pico suppresses repeated quantized values and replaces stale unsent
+AUDC/AUDF/AUDV or envelope updates with the newest value. Drum triggers and
+gate-off events retain their original order and are not deduplicated.
+
+### Envelope modes
+
+The note-on velocity sets the peak amplitude. Each voice independently defaults
+to attack-hold-release: attack moves toward the peak, the note remains held
+while its MIDI gate is open, and a matching note-off begins release.
+
+CC70 values 64-127 select attack-decay. The voice attacks to the velocity peak
+and immediately decays toward zero using the CC72 rate. Note-off is ignored for
+amplitude in this mode, although it still clears the Pico's active-note
+tracking. Values 0-63 restore attack-hold-release. A mode change applies to new
+notes; it does not reshape a note already in progress.
 
 Envelope indices select ticks per one-step amplitude change:
 
@@ -231,13 +299,17 @@ Envelope indices select ticks per one-step amplitude change:
 
 An envelope tick occurs once per frame: 50 Hz PAL and approximately 60 Hz
 NTSC. Total transition time also depends on how many of the 15 amplitude steps
-must be crossed. Defaults are attack `0` and release `1`.
+must be crossed. Defaults are attack `0`, release/decay `1`, and
+attack-hold-release mode.
 
 ### Drum samples
 
 - MIDI channel 10 triggers the sample player on TIA voice 1.
 - `slot = MIDI note & 31`.
 - Notes therefore wrap over the 32 slots four times across the MIDI range.
+- Empty slots produce no sample audio. If one replaces an active sample, the
+  normal short de-click stop runs before the latest channel 2 synthesizer state
+  is restored.
 - Sample velocity is ignored.
 - A new sample replaces the current sample.
 - Exact source-note matching prevents stale note-offs from stopping a newer
@@ -254,7 +326,37 @@ Examples:
 Gated samples respond to matching note-off and use a short de-click ramp.
 One-shot samples ignore note-off and play to their natural end.
 
-## 9. Controller port 1 soundcheck
+## 9. Receive-history visualization
+
+Both production ROMs retain the complete synthesizer, envelope, sample-player,
+and controller-port soundcheck while displaying raw receive history.
+
+- The sixteen horizontal bands correspond to the sixteen physical slots in
+  the Atari receive ring.
+- A completed link byte changes its ring slot's band and remains there until
+  that slot is reused sixteen bytes later.
+- The command byte is written directly to the TIA background-colour register,
+  with the lowest visible luminance bit forced on. Its command group therefore
+  strongly affects hue while every row remains visible, including empty slots
+  and values whose raw TIA luminance would be zero. This is a fingerprint, not
+  a hexadecimal display, because TIA colour ignores the byte's lowest bit and
+  the visualizer deliberately adjusts one luminance bit.
+- The bands fill the complete picture width; the RX visualizer draws no
+  playfield blocks, sprites, or text over them.
+- PAL uses fourteen scanlines per band and extends the final band by four
+  remaining scanlines; NTSC uses twelve scanlines per band exactly.
+
+If a slot is later overwritten with the identical raw byte, its correct new
+representation is the same colour, so that particular rewrite may not appear
+to change visually.
+
+The visualizer reuses the live receive ring rather than copying bytes into a
+second log. Sixteen visible-area serial polls are traded for colour-update
+lines each frame, but PCM sample ticks and the total PAL/NTSC scanline counts
+remain unchanged. Polling during the rest of the frame is still substantially
+faster than the Pico link clock.
+
+## 10. Controller port 1 soundcheck
 
 Connect a joystick to controller port 1. Fire advances through five banks and
 wraps from bank 4 to bank 0. Fire is edge-triggered, so press and release it for
@@ -274,43 +376,47 @@ In synth banks, Up, Right, Down, and Left select `AUDF0` values 4, 10, 18, and
 Releasing a sample direction gates a gated sample off. A one-shot sample keeps
 playing.
 
-## 10. Visual feedback
+## 11. Visual feedback
 
-The ROM uses the background colour as performance feedback:
+The sixteen receive-history bands described in section 9 are the sole
+production display. PAL and NTSC use the same visual design with their own
+scanline counts; no separate static or alternate visualizer ROM is required.
 
-- Each sample slot has a different hue.
-- Sample amplitude controls background luminance.
-- Synth voices 0 and 1 use different colour families.
-- When both synth voices are active, the displayed family alternates.
-- Silent incoming register changes produce a short colour indication.
-- Joystick soundcheck banks retain distinct colours.
-
-The visual system updates once per video frame so it does not disturb the
-fixed two-scanline sample cadence.
-
-## 11. Offline ROM patcher
+## 12. Offline ROM patcher
 
 Open `web/a26f-rom-patcher.html` directly in a modern browser. It is a
 standalone local file and does not upload the ROM or audio.
 
 ### Create a custom ROM
 
-1. Choose a matching empty or factory-populated A26F PAL or NTSC ROM.
+1. Choose the matching A26F PAL or NTSC production ROM.
    Existing sample slots are loaded into the editor and preserved by default.
 2. Choose multiple WAVs or drag them onto the drop area.
 3. Files are naturally sorted by filename into the first empty slots.
 4. Choose gated or one-shot mode for each slot.
-5. Use the play button to preview the actual converted 4-bit result.
+5. Set global gain and optional tanh shaping, then use the play button to
+   preview the actual converted 4-bit result.
 6. Check the capacity meter.
 7. Select **Create ROM**.
 
 The converter accepts standard PCM or 32-bit float WAV input, mixes multiple
 channels to mono, optionally trims near-silence, normalizes, filters while
-downsampling, applies short fades, and packs two 4-bit amplitude samples per
-byte.
+downsampling, applies global gain, optionally applies tanh shaping, adds short
+fades, and packs two 4-bit amplitude samples per byte.
 
-Processing options apply when a WAV is loaded. Reload a WAV after changing an
-option if that slot must be converted again.
+Global gain ranges from 0 dB to +60 dB and defaults to 0 dB. It follows the
+optional normalization stage and feeds the tanh stage directly:
+
+```text
+WAV → trim → resample → optional normalize → gain → optional tanh → fades → clamp → 4-bit
+```
+
+Changing Auto-trim, Normalize, Gain, or Tanh immediately reconverts every
+WAV-backed slot into both PAL and NTSC variants. The audition button, ROM
+export, and factory export then use the updated packed data. Samples imported
+from an existing ROM or `.a26factory` file have no source WAV and remain
+unchanged until replaced; their audition still represents their exact packed
+4-bit data.
 
 ### Sample limits
 
@@ -328,7 +434,7 @@ and previewed using its full packed-byte length. Its audio bytes and gate mode
 are preserved. Replace that slot with a WAV if fresh PAL and NTSC factory
 variants or a filename are required.
 
-## 12. Factory banks
+## 13. Factory banks
 
 An `.a26factory` file is an instrument preset independent of a particular ROM
 build. It stores:
@@ -341,7 +447,7 @@ build. It stores:
 
 ### Browser workflow
 
-After loading a compatible base ROM:
+After loading the matching production ROM:
 
 - **Export factory** saves the current instrument.
 - **Import factory** restores all populated slots and selects the matching PAL
@@ -350,20 +456,20 @@ After loading a compatible base ROM:
 
 ### Source-build workflow
 
-The repository includes `factory/default.a26factory`, populated with 16 808
-samples.
+The repository includes the current prepared sample bank at
+`factory/default.a26factory`.
 
 ```sh
-make -C atari factory
+make -C atari
 ```
 
 Use a different bank:
 
 ```sh
-make -C atari factory FACTORY=/path/to/instrument.a26factory
+make -C atari FACTORY=/path/to/instrument.a26factory
 ```
 
-## 13. Building from source
+## 14. Building from source
 
 ### Atari toolchain
 
@@ -372,21 +478,15 @@ Requirements:
 - DASM
 - Node.js
 
-Build and verify all base ROMs and the default-factory populated ROMs:
+Build and verify both default-factory production ROMs:
 
 ```sh
 make -C atari clean all
 ```
 
-The verifier checks exact ROM sizes, PAL/NTSC manifests, empty internal base
-directories, and identical F4 common bankswitch stubs. The default build also
-applies `factory/default.a26factory` to both television targets.
-
-Build factory-populated ROMs:
-
-```sh
-make -C atari factory
-```
+The verifier checks exact ROM sizes, PAL/NTSC manifests, factory-populated
+sample directories, and identical F4 common bankswitch stubs. The only ROM
+outputs are `atari/build/a26f-pal.bin` and `atari/build/a26f-ntsc.bin`.
 
 ### Pico toolchain
 
@@ -401,9 +501,12 @@ The repository import file expects the SDK at `pico/lib/pico-sdk` unless its
 path is changed.
 
 ```sh
-cmake -S pico -B pico/build -DPICO_BOARD=pico
-cmake --build pico/build
+cmake -S pico -B pico/build-pico2w -DPICO_BOARD=pico2_w
+cmake --build pico/build-pico2w
 ```
+
+For an original RP2040 Pico, use `PICO_BOARD=pico` and a different build
+directory so the two architectures cannot be confused.
 
 ### Rebuild the offline HTML
 
@@ -424,24 +527,34 @@ make test-stella
 ```
 
 The first target rebuilds the Atari and browser outputs and runs deterministic
-ROM/factory/converter tests. `test-pico` uses an isolated build directory and
-checks both UF2 identities with picotool. `test-stella` verifies that all four
-empty/populated PAL/NTSC production images are recognised as 32K F4 ROMs.
+ROM/factory/converter tests. `test-pico` uses an isolated original-Pico
+RP2040 build directory and checks both production UF2 identities with picotool;
+the Pico 2 W build is made separately with `PICO_BOARD=pico2_w`. `test-stella`
+checks the two PAL/NTSC production images and their F4 mapper identification.
 
-## 14. Troubleshooting
+### Prepare a release bundle
+
+```sh
+make release
+```
+
+This runs the Atari, browser, Stella, and Pico 2 W checks, then creates a
+versioned directory and zip archive under `dist/`. See
+`docs/release-checklist.md` for bundle contents and the final hardware checks.
+
+## 15. Troubleshooting
 
 ### Stella plays synth sounds but not samples
 
 - Confirm the ROM is exactly 32,768 bytes.
 - Confirm Stella reports `F4 (32K)`.
-- Use a `.f4` extension or explicitly force the F4 cartridge type.
+- Explicitly force the F4 cartridge type if Stella does not detect it.
 - Confirm slots 0–3 are populated before testing joystick bank 4.
 - Confirm Fire was pressed and released four times from startup.
 
 ### ROM patcher rejects the ROM
 
 - Use an A26F NEO 32K production ROM with a supported manifest version.
-- Do not use the 4K diagnostic ROM as the patcher base.
 - Match PAL/NTSC ROM selection to the intended console.
 
 ### Factory import fails
@@ -455,7 +568,8 @@ empty/populated PAL/NTSC production images are recognised as 32K F4 ROMs.
 
 - Try another USB data cable; many USB cables provide power only.
 - Reflash the UF2 using BOOTSEL.
-- Confirm the firmware was built for `PICO_BOARD=pico`.
+- Confirm the firmware matches the board: `pico2_w` for Pico 2 W or `pico` for
+  the original Pico.
 - Check the MIDI device list for **A26F NEO NPN** or
   **A26F NEO Non-Inverting**.
 
@@ -483,16 +597,27 @@ empty/populated PAL/NTSC production images are recognised as 32K F4 ROMs.
 - The note-off pitch must exactly match the most recent triggering MIDI note,
   even when two different pitches wrap to the same slot.
 
-## 15. Technical reference
+### Receive-history bands do not change
+
+- Confirm the current `a26f-pal.bin` or `a26f-ntsc.bin` is running.
+- A MIDI note normally produces separate pitch and amplitude command bytes.
+- If the Pico LED reacts but no bands change, verify GP2 data and GP3 clock at
+  controller port 2 with a meter, logic analyser, or oscilloscope.
+- Very dark bands are valid, but the RX visualizer forces a minimum luminance
+  and should not create black rows. A black row therefore suggests an older
+  visualizer ROM or a display/capture issue.
+
+## 16. Technical reference
 
 - [PAL hardware bring-up checklist](hardware-test-checklist.md)
-- [Three-wire electrical interface](../hardware/wiring.md)
+- [Controller-port electrical interface](../hardware/wiring.md)
 - [Wire and MIDI protocol](../protocol/protocol.md)
 - [ROM format](../protocol/rom-format.md)
 - [Factory format](../protocol/factory-format.md)
 
-## 16. Current project status
+## 17. Current project status
 
-Software builds and emulator testing are operational. The current engineering
-priority is complete validation and tuning on original PAL hardware, followed
-by NTSC hardware confirmation.
+Software builds and emulator testing are operational. Original PAL hardware
+has passed joystick, USB MIDI synth, pitch-bend, sample-playback, and
+receive-history visualization tests using the Pico 2 W and TXS0108E interface.
+NTSC hardware confirmation remains to be completed.

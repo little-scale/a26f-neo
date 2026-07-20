@@ -19,6 +19,11 @@ const capacityText = $("#capacity-text");
 const dropZone = $("#drop-zone");
 const factoryInput = $("#factory-input");
 const factoryExportButton = $("#factory-export");
+const autoTrimInput = $("#auto-trim");
+const normalizeInput = $("#normalize");
+const gainInput = $("#gain");
+const gainValue = $("#gain-value");
+const tanhInput = $("#tanh");
 const previewAudio = new Audio();
 let activePreview = -1;
 
@@ -57,6 +62,45 @@ function makePreviewUrl(packed, sampleCount, sampleRate) {
     wav[44 + i] = nibble * 17;
   }
   return URL.createObjectURL(new Blob([wav], {type: "audio/wav"}));
+}
+
+function processingOptions() {
+  return {
+    autoTrim: autoTrimInput.checked,
+    normalize: normalizeInput.checked,
+    gainDb: Number(gainInput.value),
+    tanh: tanhInput.checked,
+  };
+}
+
+function formatGain() {
+  const gain = Number(gainInput.value);
+  return `${gain > 0 ? "+" : ""}${gain.toFixed(1)} dB`;
+}
+
+function convertDecoded(decoded) {
+  const options = processingOptions();
+  return {
+    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
+    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
+  };
+}
+
+function validateVariants(name, variants) {
+  const processed = variants[state.manifest.tv];
+  const max = state.manifest.regions[0].length;
+  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
+    throw new Error(`${name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
+  }
+}
+
+function stopPreview() {
+  previewAudio.pause();
+  if (activePreview >= 0) {
+    const row = slotsElement.querySelector(`[data-slot="${activePreview}"]`);
+    if (row) row.querySelector(".preview").textContent = "▶";
+  }
+  activePreview = -1;
 }
 
 function slotMarkup(index) {
@@ -99,22 +143,48 @@ function installSlot(index, slot) {
 async function loadSample(index, file) {
   if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
   const decoded = decodeWav(await file.arrayBuffer());
-  const options = {autoTrim: $("#auto-trim").checked, normalize: $("#normalize").checked};
-  const variants = {
-    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
-    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
-  };
-  const processed = variants[state.manifest.tv];
-  const max = state.manifest.regions[0].length;
-  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
-    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
-  }
+  const variants = convertDecoded(decoded);
+  validateVariants(file.name, variants);
   const row = slotsElement.querySelector(`[data-slot="${index}"]`);
   installSlot(index, {
     name: file.name,
     gated: row.querySelector("select").value === "gated",
+    sourceDecoded: decoded,
     variants,
   });
+}
+
+function reprocessWavSlots() {
+  gainValue.textContent = formatGain();
+  if (!state.manifest) return;
+
+  try {
+    const replacements = [];
+    state.slots.forEach((slot, index) => {
+      if (!slot?.sourceDecoded) return;
+      const variants = convertDecoded(slot.sourceDecoded);
+      validateVariants(slot.name, variants);
+      replacements.push({index, slot: {...slot, variants}});
+    });
+    if (!replacements.length) {
+      showMessage("Processing settings will apply to newly loaded WAV files. Packed ROM and factory samples are unchanged.");
+      return;
+    }
+    stopPreview();
+    for (const replacement of replacements) {
+      installSlot(replacement.index, replacement.slot);
+    }
+    showMessage(`Reprocessed ${replacements.length} WAV-backed sample${replacements.length === 1 ? "" : "s"}; previews and exports now use the new settings.`, "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
+}
+
+gainInput.addEventListener("input", () => {
+  gainValue.textContent = formatGain();
+});
+for (const control of [autoTrimInput, normalizeInput, gainInput, tanhInput]) {
+  control.addEventListener("change", reprocessWavSlots);
 }
 
 slotsElement.addEventListener("change", async (event) => {

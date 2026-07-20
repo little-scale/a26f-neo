@@ -16,4 +16,4 @@ const slots = factory.slots.map((slot) => {
 });
 const result = patchRom(base, manifest, slots);
 await writeFile(outputPath, result.rom);
-console.log(`Built ${manifest.tv} factory ROM: ${outputPath} (${result.used}/${result.capacity} sample bytes)`);
+console.log(`Built ${manifest.tv} production ROM: ${outputPath} (${result.used}/${result.capacity} sample bytes)`);

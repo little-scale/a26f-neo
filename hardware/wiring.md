@@ -1,11 +1,11 @@
-# Three-wire controller-port interface
+# Controller-port interface
 
 ## Atari-side connections
 
 | DB9 pin | Port 2 function | Link function |
 |---:|---|---|
-| 1 | Up / `SWCHA` bit 3 | Clock |
-| 2 | Down / `SWCHA` bit 2 | Data |
+| 1 | Up / `SWCHA` bit 0 | Clock |
+| 2 | Down / `SWCHA` bit 1 | Data |
 | 8 | Ground | Common ground |
 
 Both signals are read from the low nibble of `SWCHA`. The fire input is not
@@ -40,14 +40,39 @@ for both arrangements.
 
 ## Pico board
 
-The selected board is an RP2040 Pico-compatible 40-pin module with USB-C. It
-uses the normal Raspberry Pi Pico SDK board target:
+The current board is a Raspberry Pi Pico 2 W using the RP2350 SDK target:
 
 ```text
-PICO_BOARD=pico
+PICO_BOARD=pico2_w
 ```
+
+The original RP2040 Pico remains supported with `PICO_BOARD=pico`; use a
+separate build directory and the UF2 produced for that exact target.
 
 Default GPIO allocation:
 
 - GP2: data
 - GP3: clock
+- GP4: TXS0108E OE in the non-inverting UF2
+- `3V3(OUT)`, Pico header pin 36: TXS0108E VCCA/VA
+
+## TXS0108E non-inverting interface
+
+For a TXS0108E module, flash `a26f_neo_noninverting.uf2` and connect:
+
+- Pico `3V3(OUT)` (header pin 36) to VCCA/VA.
+- GP4 (Pico header pin 6) to OE. Add a 10 kOhm OE pulldown to ground if the
+  module does not already provide one.
+- GP2 to A1 and GP3 to A2.
+- Atari pin 7 (+5 V) to VCCB/VB.
+- B1 to Atari pin 2 (data) and B2 to Atari pin 1 (clock).
+- Pico ground to module ground and Atari pin 8.
+
+Add 100 nF decoupling at each supply rail if the module does not already
+provide it. The non-inverting firmware holds GP4 low, establishes the GP2/GP3
+idle levels, and only then raises GP4 to enable the translator. Use
+`3V3(OUT)`, not the adjacent Pico `3V3_EN` pin.
+
+The logical link still consists of clock, data, and common ground. Powering
+VCCB from Atari pin 7 makes this particular translator arrangement a four-wire
+controller-port connection. Never join Atari pin 7 to Pico VBUS or 3V3.

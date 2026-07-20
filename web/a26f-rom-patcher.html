@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>A26F NEO Sample Patcher</title>
   <style>:root{color-scheme:dark;--ink:#f5f2e9;--muted:#aaa69b;--panel:#181a1d;--line:#303339;--red:#ff5349;--amber:#ffb648;--green:#7ed88b;background:#0d0e10;font:16px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% -10%,#3b1717 0,transparent 32rem),#0d0e10}header,main,footer{width:min(1080px,calc(100% - 32px));margin:auto}header{display:flex;align-items:center;gap:18px;padding:48px 0 30px}.mark{display:grid;place-items:center;width:70px;height:70px;border:2px solid var(--red);color:var(--red);font-size:22px;font-weight:900;box-shadow:6px 6px 0 #4b1e1b}h1,h2,p{margin:0}h1{font-size:clamp(26px,5vw,44px);letter-spacing:-.06em}header p,.panel p{color:var(--muted)}main{display:grid;gap:18px}.panel{border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 94%,transparent);box-shadow:0 18px 50px #0006}.rom-panel,.build-panel{display:grid;grid-template-columns:1fr auto;align-items:center;gap:22px;padding:24px}.step{float:left;margin:2px 13px 20px 0;color:var(--red);font-weight:900}.summary{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;padding:12px 15px;background:#101113;border-left:3px solid var(--amber)}.summary span{color:var(--muted);text-align:right}.controls{padding:24px}.heading{display:flex}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:22px 0}.primary-file input,.choose input{position:absolute;opacity:0;pointer-events:none}.primary-file span,.build{display:inline-block;padding:12px 18px;border:0;background:var(--red);color:white;font:inherit;font-weight:900;cursor:pointer}.primary-file:has(input:disabled) span,.build:disabled{opacity:.35;cursor:not-allowed}.toggle{display:flex;align-items:center;gap:8px;color:var(--muted)}input[type=checkbox]{accent-color:var(--red);width:18px;height:18px}.quiet,.remove,.preview{border:1px solid var(--line);background:transparent;color:var(--muted);font:inherit;cursor:pointer}.quiet{padding:9px 13px;margin-left:auto}.drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:105px;margin:-3px 0 18px;border:2px dashed #43474e;background:#121416;color:var(--muted);transition:.15s}.drop-zone strong{color:var(--ink);font-size:18px}.drop-zone.dragging{border-color:var(--green);background:#152019;box-shadow:inset 0 0 0 3px #7ed88b22}.capacity{margin-bottom:18px}.capacity>div:first-child{display:flex;justify-content:space-between;color:var(--muted);font-size:13px}.track{height:7px;margin-top:7px;background:#282a2e;overflow:hidden}.track i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));transition:width .25s}.slots{display:grid;gap:7px;max-height:560px;overflow:auto;padding-right:5px}.slot{display:grid;grid-template-columns:45px minmax(180px,1fr) 130px 110px 34px 34px;align-items:center;gap:10px;padding:9px;background:#111315;border:1px solid #25282c}.slot.filled{border-left:3px solid var(--green)}.slot-number{font-size:18px;color:var(--red);font-weight:900}.slot-file{display:flex;min-width:0;flex-direction:column}.slot-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.slot-detail,.mode span{font-size:11px;color:var(--muted)}.mode{display:flex;flex-direction:column}.mode select{border:1px solid var(--line);background:#191b1e;color:var(--ink);padding:6px;font:inherit;font-size:12px}.choose span{display:block;padding:8px 9px;text-align:center;border:1px solid var(--line);color:var(--muted);font-size:12px;cursor:pointer}.preview,.remove{height:34px;font-size:17px}.preview:disabled{opacity:.25;cursor:not-allowed}.remove{font-size:22px}.build-panel{margin-top:0}.build{font-size:16px}.message{position:sticky;bottom:12px;padding:13px 16px;background:#22252a;border-left:4px solid var(--amber);box-shadow:0 10px 30px #0008}.message[data-kind=error]{border-color:var(--red)}.message[data-kind=success]{border-color:var(--green)}footer{padding:30px 0 50px;color:#656871;text-align:center;font-size:12px}@media(max-width:760px){header{padding-top:28px}.rom-panel,.build-panel{grid-template-columns:1fr}.summary{flex-direction:column}.summary span{text-align:left}.slot{grid-template-columns:36px 1fr 34px 34px}.mode,.choose{grid-row:2}.mode{grid-column:2}.choose{grid-column:2;margin-left:140px}.preview{grid-column:3;grid-row:1/3}.remove{grid-column:4;grid-row:1/3}.quiet{margin-left:0}.drop-zone{text-align:center;padding:16px}.build-panel .build{width:100%}}
+.gain-control{display:flex;align-items:center;gap:8px;color:var(--muted)}.gain-control span{display:flex;min-width:102px;justify-content:space-between;gap:6px;font-size:12px}.gain-control output{color:var(--ink)}.gain-control input{width:130px;accent-color:var(--red)}
 </style>
 </head>
 <body>
   <header><div class="mark">A26F</div><div><h1>NEO Sample Patcher</h1><p>Build a custom Atari 2600 drum ROM—entirely offline.</p></div></header>
   <main>
     <section class="panel rom-panel">
-      <div><span class="step">1</span><h2>Choose the base ROM</h2><p>The patcher checks the ROM version and uses its PAL or NTSC sample rate.</p></div>
+      <div><span class="step">1</span><h2>Choose the ROM</h2><p>The patcher checks the production ROM version and uses its PAL or NTSC sample rate.</p></div>
       <label class="primary-file"><input id="rom-input" type="file" accept=".f4,.bin,.rom,application/octet-stream"><span>Choose ROM</span></label>
       <div id="rom-summary" class="summary"><strong>No compatible ROM loaded</strong><span>Choose an A26F NEO 32K ROM.</span></div>
     </section>
@@ -24,6 +25,8 @@
         <button id="factory-export" class="quiet" type="button" disabled>Export factory</button>
         <label class="toggle"><input id="auto-trim" type="checkbox" checked><span>Auto-trim silence</span></label>
         <label class="toggle"><input id="normalize" type="checkbox" checked><span>Normalize</span></label>
+        <label class="gain-control"><span>Gain <output id="gain-value">0.0 dB</output></span><input id="gain" type="range" min="0" max="60" step="0.5" value="0"></label>
+        <label class="toggle"><input id="tanh" type="checkbox"><span>Tanh</span></label>
         <button id="clear-button" class="quiet" type="button">Clear all</button>
       </div>
       <div id="drop-zone" class="drop-zone">
@@ -38,12 +41,12 @@
       <div><span class="step">3</span><h2>Create the patched ROM</h2><p>Your original ROM and audio never leave this browser.</p></div>
       <button id="build-button" class="build" type="button" disabled>Create ROM</button>
     </section>
-    <div id="message" class="message" role="status">Choose a base ROM to begin.</div>
+    <div id="message" class="message" role="status">Choose a PAL or NTSC ROM to begin.</div>
   </main>
-  <footer>A26F NEO · format 1.0 · no network connection required</footer>
+  <footer>A26F NEO v0.1 · ROM format 1.1 · no network connection required</footer>
   <script type="module">const MAGIC = "A26FSMP\0";
 const FORMAT_MAJOR = 1;
-const FORMAT_MINOR = 0;
+const FORMAT_MINOR = 1;
 const SLOT_COUNT = 32;
 const FLAG_GATED = 1;
 const FACTORY_MAGIC = "A26FFACT";
@@ -126,7 +129,7 @@ function parseManifest(input) {
     });
   }
   if (manifest.regions.some((r, i) => r.offset !== i * 0x1000 || r.length !== 0x0f00)) {
-    throw new Error("The ROM sample regions do not match format 1.0.");
+    throw new Error(`The ROM sample regions do not match format ${FORMAT_MAJOR}.${FORMAT_MINOR}.`);
   }
   return manifest;
 }
@@ -283,7 +286,8 @@ function processAudio(decoded, targetRate, options = {}) {
 
   let peak = 0;
   for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
-  const gain = options.normalize === false || peak === 0 ? 1 : 0.98 / peak;
+  const normalizeGain = options.normalize === false || peak === 0 ? 1 : 0.98 / peak;
+  const userGain = 10 ** ((options.gainDb ?? 0) / 20);
   const fadeSamples = Math.min(Math.floor(samples.length / 2), Math.round(targetRate * 0.003));
   const packed = new Uint8Array(Math.ceil(samples.length / 2));
   for (let i = 0; i < samples.length; i += 1) {
@@ -292,7 +296,12 @@ function processAudio(decoded, targetRate, options = {}) {
     if (fadeSamples > 0 && i >= samples.length - fadeSamples) {
       envelope = Math.min(envelope, (samples.length - 1 - i) / fadeSamples);
     }
-    const signed = Math.max(-1, Math.min(1, samples[i] * gain * envelope));
+    // Global gain follows optional normalization and directly drives the tanh
+    // stage. Apply the edge envelope afterward so fades remain clean even at
+    // high drive settings.
+    let signed = samples[i] * normalizeGain * userGain;
+    if (options.tanh === true) signed = Math.tanh(signed);
+    signed = Math.max(-1, Math.min(1, signed * envelope));
     const nibble = Math.max(0, Math.min(15, Math.round((signed + 1) * 7.5)));
     if ((i & 1) === 0) packed[i >> 1] = nibble << 4;
     else packed[i >> 1] |= nibble;
@@ -469,6 +478,11 @@ const capacityText = $("#capacity-text");
 const dropZone = $("#drop-zone");
 const factoryInput = $("#factory-input");
 const factoryExportButton = $("#factory-export");
+const autoTrimInput = $("#auto-trim");
+const normalizeInput = $("#normalize");
+const gainInput = $("#gain");
+const gainValue = $("#gain-value");
+const tanhInput = $("#tanh");
 const previewAudio = new Audio();
 let activePreview = -1;
 
@@ -507,6 +521,45 @@ function makePreviewUrl(packed, sampleCount, sampleRate) {
     wav[44 + i] = nibble * 17;
   }
   return URL.createObjectURL(new Blob([wav], {type: "audio/wav"}));
+}
+
+function processingOptions() {
+  return {
+    autoTrim: autoTrimInput.checked,
+    normalize: normalizeInput.checked,
+    gainDb: Number(gainInput.value),
+    tanh: tanhInput.checked,
+  };
+}
+
+function formatGain() {
+  const gain = Number(gainInput.value);
+  return `${gain > 0 ? "+" : ""}${gain.toFixed(1)} dB`;
+}
+
+function convertDecoded(decoded) {
+  const options = processingOptions();
+  return {
+    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
+    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
+  };
+}
+
+function validateVariants(name, variants) {
+  const processed = variants[state.manifest.tv];
+  const max = state.manifest.regions[0].length;
+  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
+    throw new Error(`${name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
+  }
+}
+
+function stopPreview() {
+  previewAudio.pause();
+  if (activePreview >= 0) {
+    const row = slotsElement.querySelector(`[data-slot="${activePreview}"]`);
+    if (row) row.querySelector(".preview").textContent = "▶";
+  }
+  activePreview = -1;
 }
 
 function slotMarkup(index) {
@@ -549,22 +602,48 @@ function installSlot(index, slot) {
 async function loadSample(index, file) {
   if (!state.manifest) throw new Error("Choose an A26F ROM before adding samples.");
   const decoded = decodeWav(await file.arrayBuffer());
-  const options = {autoTrim: $("#auto-trim").checked, normalize: $("#normalize").checked};
-  const variants = {
-    PAL: processAudio(decoded, FACTORY_RATES.PAL, options),
-    NTSC: processAudio(decoded, FACTORY_RATES.NTSC, options),
-  };
-  const processed = variants[state.manifest.tv];
-  const max = state.manifest.regions[0].length;
-  if (Object.values(variants).some((variant) => variant.packed.length > max)) {
-    throw new Error(`${file.name} is ${processed.duration.toFixed(2)} s after conversion; the limit is ${(max * 2 / state.manifest.sampleRate).toFixed(2)} s.`);
-  }
+  const variants = convertDecoded(decoded);
+  validateVariants(file.name, variants);
   const row = slotsElement.querySelector(`[data-slot="${index}"]`);
   installSlot(index, {
     name: file.name,
     gated: row.querySelector("select").value === "gated",
+    sourceDecoded: decoded,
     variants,
   });
+}
+
+function reprocessWavSlots() {
+  gainValue.textContent = formatGain();
+  if (!state.manifest) return;
+
+  try {
+    const replacements = [];
+    state.slots.forEach((slot, index) => {
+      if (!slot?.sourceDecoded) return;
+      const variants = convertDecoded(slot.sourceDecoded);
+      validateVariants(slot.name, variants);
+      replacements.push({index, slot: {...slot, variants}});
+    });
+    if (!replacements.length) {
+      showMessage("Processing settings will apply to newly loaded WAV files. Packed ROM and factory samples are unchanged.");
+      return;
+    }
+    stopPreview();
+    for (const replacement of replacements) {
+      installSlot(replacement.index, replacement.slot);
+    }
+    showMessage(`Reprocessed ${replacements.length} WAV-backed sample${replacements.length === 1 ? "" : "s"}; previews and exports now use the new settings.`, "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
+}
+
+gainInput.addEventListener("input", () => {
+  gainValue.textContent = formatGain();
+});
+for (const control of [autoTrimInput, normalizeInput, gainInput, tanhInput]) {
+  control.addEventListener("change", reprocessWavSlots);
 }
 
 slotsElement.addEventListener("change", async (event) => {

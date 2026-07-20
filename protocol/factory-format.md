@@ -27,3 +27,11 @@ offsets are relative to the start of the binary payload area.
 
 Both parser implementations reject unsupported versions, invalid lengths,
 missing variants, samples over 3,840 packed bytes, and checksum failures.
+
+Factory banks are independent of television target. The build or browser
+selects the PAL or NTSC payloads and packs them into the corresponding format
+1.1 production ROM.
+
+Gain, normalization, and tanh settings are not stored as editable factory
+parameters. Their results are baked into the prepared PAL and NTSC 4-bit
+payloads, ensuring factory import and audition reproduce the exported sound.

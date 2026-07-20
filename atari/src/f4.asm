@@ -1,6 +1,7 @@
         PROCESSOR 6502
 
 F4_BUILD        = 1
+RX_VISUALIZER   = 1
 F4Reset         = $FF00
 FetchSampleByte = $FF06
 
@@ -63,4 +64,3 @@ FetchSampleByte = $FF06
         .word F4Reset, F4Reset, F4Reset
 
         INCLUDE "main.asm"
-
