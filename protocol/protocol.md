@@ -1,6 +1,6 @@
 # A26F wire and MIDI protocol
 
-Protocol version: `1.1`
+Protocol version: `1.2`
 
 ## Physical link
 
@@ -76,7 +76,10 @@ as its value.
 | `E0-E3`, `E5-E6` | Select extended envelope parameter | see below |
 | `E4` | Reset/resynchronise command parser | no value |
 | `F0-FF` | Envelope value when a selection is pending | low 4 bits |
-| `F0` | Gate off the current gated sample |
+| `F0` | Gate off the current gated sample when no selection is pending |
+| `F1` | Set global sample playback rate to 1× when no selection is pending |
+| `F2` | Set global sample playback rate to 2× when no selection is pending |
+| `F3` | Set global sample playback rate to 4× when no selection is pending |
 
 Amplitude commands are envelope gates: a nonzero value begins attack toward
 that peak; zero begins release. In attack-decay mode the ROM changes the target
@@ -172,6 +175,13 @@ Indices select ticks per one-step amplitude change:
 - Gated is the default per-sample mode; one-shot is optional.
 - A gated sample stops only for note-off of its exact triggering note.
 - Gate-off uses a maximum 15-sample de-click ramp before restoring voice 1.
+- Channel 10 CC20 selects the global rate: 0–42 sends `F1` for 1×, 43–84
+  sends `F2` for 2×, and 85–127 sends `F3` for 4×. The Atari defaults to 1×.
+- A rate change takes effect on the next packed sample-pair boundary, including
+  during active playback. Equal quantized rates are not retransmitted.
+- All rates retain the same PAL/NTSC TIA update cadence. At 2× and 4× the ROM
+  advances by two or four packed bytes per pair, creating deliberate aliasing
+  while avoiding additional scanline work.
 
 ## Television timing
 

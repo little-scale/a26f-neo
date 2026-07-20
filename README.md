@@ -8,8 +8,8 @@ tool.
 PAL50 hardware is the primary target. Matching NTSC firmware-independent ROMs
 and sample variants are built from the same source.
 
-Release candidate: **v0.1**. Later pre-1.0 releases increment by `v0.01`, so
-the next versions are `v0.11`, `v0.12`, and `v0.13`.
+Current public release: **v0.1**. Development version: **v0.11**. Later pre-1.0
+releases increment by `v0.01`, producing `v0.12`, `v0.13`, and so on.
 
 > A26F NEO is currently an experimental hardware project. Use the documented
 > level-shifting interface; do not connect Pico GPIO directly to Atari inputs.
@@ -23,6 +23,7 @@ the next versions are `v0.11`, `v0.12`, and `v0.13`.
 - 32 wrapped MIDI drum slots on channel 10
 - Packed 4-bit PCM playback at approximately 7.8 kHz
 - Per-sample gated or one-shot operation
+- Global 1×, 2×, and 4× sample playback-rate control via channel 10 CC20
 - 32K Atari F4 bankswitching with PAL and NTSC targets
 - Five-bank joystick soundcheck, including sample slots 0–3
 - Sixteen-band receive-history visualization with no black rows
@@ -183,6 +184,9 @@ the Atari inputs.
 | CC73 | Attack index |
 | CC72 | Release/decay index |
 | Channel 10 notes | Sample slot `note & 31` |
+| Channel 10 CC20, 0–42 | Sample playback at 1× |
+| Channel 10 CC20, 43–84 | Sample playback at 2× |
+| Channel 10 CC20, 85–127 | Sample playback at 4× |
 
 The drum mapping always wraps across all 32 physical slots. Empty slots emit
 no sample audio; if one replaces an active sample, the normal de-click stop
@@ -220,7 +224,8 @@ Prepare the complete versioned release bundle with:
 make release
 ```
 
-This creates `dist/a26f-neo-v0.1/` and `dist/a26f-neo-v0.1.zip`, including the
+This uses `VERSION` for the output name, currently creating
+`dist/a26f-neo-v0.11/` and `dist/a26f-neo-v0.11.zip`, including the
 two production ROMs, two Pico 2 W interface UF2s, offline patcher, default
 factory, documentation, and SHA-256 checksums.
 

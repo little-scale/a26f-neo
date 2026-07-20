@@ -94,8 +94,10 @@ SampleActive   ds 1
 SampleByte     ds 1
 SamplePhase    ds 1
 SampleLength   ds 2
+SampleEnd      ds 2
 SampleFlags    ds 1
 SampleOutput   ds 1
+SampleStride   ds 1
 
 Voice0Attack  = EnvelopeParams
 Voice0Release = EnvelopeParams+1
@@ -177,6 +179,7 @@ ClearTia:
         sta Voice1Release
         sta Voice0Counter
         sta Voice1Counter
+        sta SampleStride
         lda #8
         sta RxBits
         lda #SERIAL_IDLE_TICKS
@@ -753,6 +756,25 @@ ServiceSystem:
         lda RxCommand
         cmp #$F0
         beq ServiceSampleGateOff
+        cmp #$F1
+        beq ServiceSampleRate1x
+        cmp #$F2
+        beq ServiceSampleRate2x
+        cmp #$F3
+        beq ServiceSampleRate4x
+        rts
+
+ServiceSampleRate1x:
+        lda #1
+        sta SampleStride
+        rts
+ServiceSampleRate2x:
+        lda #2
+        sta SampleStride
+        rts
+ServiceSampleRate4x:
+        lda #4
+        sta SampleStride
         rts
 
 ServiceParserReset:
@@ -824,6 +846,16 @@ ServiceSampleLoad3:
         lda SampleLength
         ora SampleLength+1
         beq ServiceSampleEmpty
+        ; Samples never cross a payload bank. Precompute the exclusive logical
+        ; end address so the hot playback path can advance by 1, 2, or 4
+        ; packed bytes without a 16-bit subtraction on every sample pair.
+        clc
+        lda SamplePtr
+        adc SampleLength
+        sta SampleEnd
+        lda SamplePtr+1
+        adc SampleLength+1
+        sta SampleEnd+1
         lda #1
         sta SampleActive
         lda #0
@@ -858,19 +890,24 @@ SampleTickLow:
         sta AUDV1
         lda #0
         sta SamplePhase
-        sec
-        lda SampleLength
-        sbc #1
-        sta SampleLength
-        lda SampleLength+1
-        sbc #0
-        sta SampleLength+1
-        ora SampleLength
-        beq SampleTickLastByte
-        inc SamplePtr
-        bne SampleTickDone
+        ; 1x advances one packed byte after its two nibbles. 2x and 4x retain
+        ; the same TIA update cadence but skip forward by two or four bytes.
+        ; The carry-plus-end worst case is 75 cycles including the caller's
+        ; JSR, leaving this path within one 76-cycle scanline.
+        clc
+        lda SamplePtr
+        adc SampleStride
+        sta SamplePtr
+        bcc SampleTickCheckEnd
         inc SamplePtr+1
-        rts
+SampleTickCheckEnd:
+        lda SamplePtr
+        cmp SampleEnd
+        lda SamplePtr+1
+        sbc SampleEnd+1
+        bcc SampleTickDone
+        ; The stride may pass the exclusive end address; both equality and
+        ; overshoot finish through the existing short de-click ramp.
 SampleTickLastByte:
         lda SampleOutput
         ora #$80

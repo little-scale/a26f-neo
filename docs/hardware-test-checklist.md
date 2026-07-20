@@ -108,6 +108,8 @@ Power down before connecting the controller-port interface.
 - [ ] Send a channel 2 note and confirm TIA voice 1.
 - [ ] Send channel 10 note 32 and confirm sample slot 0.
 - [ ] Send channel 10 notes 33–35 and confirm slots 1–3.
+- [ ] Send channel 10 CC20 values 0, 64, and 127 and confirm 1×, 2×, and 4×
+      sample speed and pitch.
 - [ ] Release a gated drum note early and confirm de-clicked stop.
 - [ ] Set a browser-patched slot to one-shot and confirm note-off is ignored.
 

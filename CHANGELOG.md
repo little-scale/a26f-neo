@@ -5,6 +5,15 @@ Product releases use decimal-style pre-1.0 numbering. The initial release is
 and so on). Product release numbers are independent of the wire protocol, ROM
 sample format, and factory-bank format versions.
 
+## v0.11 — unreleased
+
+### Added
+
+- Global sample playback-rate control on MIDI channel 10 CC20
+- Runtime 1×, 2×, and 4× source stepping without changing the stable TIA
+  amplitude-update cadence
+- Protocol commands `F1`, `F2`, and `F3` for the three sample rates
+
 ## v0.1 — 2026-07-20
 
 Initial hardware-tested release candidate.

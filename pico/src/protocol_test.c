@@ -15,6 +15,9 @@ enum {
     CMD_SAMPLE_TRIGGER = 0xC0,
     CMD_PARSER_RESET = 0xE4,
     CMD_SAMPLE_GATE_OFF = 0xF0,
+    CMD_SAMPLE_RATE_1X = 0xF1,
+    CMD_SAMPLE_RATE_2X = 0xF2,
+    CMD_SAMPLE_RATE_4X = 0xF3,
     PREFLIGHT_STATE_MS = 750,
 };
 
@@ -71,10 +74,27 @@ static void run_step(uint8_t step) {
             a26f_link_enqueue(CMD_AUDV0);
             break;
         case 5:
+            a26f_link_enqueue(CMD_SAMPLE_RATE_1X);
+            break;
+        case 6:
             // Factory sample slot zero. Velocity is intentionally irrelevant.
             a26f_link_enqueue(CMD_SAMPLE_TRIGGER);
             break;
-        case 6:
+        case 7:
+            a26f_link_enqueue(CMD_SAMPLE_GATE_OFF);
+            break;
+        case 8:
+            a26f_link_enqueue(CMD_SAMPLE_RATE_2X);
+            a26f_link_enqueue(CMD_SAMPLE_TRIGGER);
+            break;
+        case 9:
+            a26f_link_enqueue(CMD_SAMPLE_GATE_OFF);
+            break;
+        case 10:
+            a26f_link_enqueue(CMD_SAMPLE_RATE_4X);
+            a26f_link_enqueue(CMD_SAMPLE_TRIGGER);
+            break;
+        case 11:
             a26f_link_enqueue(CMD_SAMPLE_GATE_OFF);
             break;
     }
@@ -102,7 +122,7 @@ int main(void) {
             reset_sent = true;
         } else {
             run_step(step);
-            step = (uint8_t)((step + 1u) % 7u);
+            step = (uint8_t)((step + 1u) % 12u);
         }
         deadline = now + A26F_PROTOCOL_TEST_STEP_TIME_US;
     }

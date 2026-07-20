@@ -17,10 +17,14 @@ enum {
     CMD_PARSER_RESET = 0xE4,
     CMD_ENV_VALUE = 0xF0,
     CMD_SAMPLE_GATE_OFF = 0xF0,
+    CMD_SAMPLE_RATE_1X = 0xF1,
+    CMD_SAMPLE_RATE_2X = 0xF2,
+    CMD_SAMPLE_RATE_4X = 0xF3,
 };
 
 enum {
     CC_SOUND_CONTROL = 1,
+    CC_SAMPLE_RATE = 20,
     CC_ENVELOPE_MODE = 70,
     CC_RELEASE = 72,
     CC_ATTACK = 73,
@@ -54,7 +58,30 @@ static uint16_t pitch_bend[2] = {MIDI_BEND_CENTER, MIDI_BEND_CENTER};
 static bool attack_decay_mode[2];
 static shadow_state_t register_state[REGISTER_STATE_COUNT];
 static shadow_state_t envelope_state[ENVELOPE_STATE_COUNT];
+static shadow_state_t sample_rate_state;
 static bool midi_activity;
+
+static void flush_sample_rate(void) {
+    if (!sample_rate_state.desired_valid ||
+        (sample_rate_state.scheduled_valid &&
+         sample_rate_state.scheduled == sample_rate_state.desired)) {
+        return;
+    }
+    if (a26f_link_enqueue(sample_rate_state.desired)) {
+        sample_rate_state.scheduled = sample_rate_state.desired;
+        sample_rate_state.scheduled_valid = true;
+    }
+}
+
+static void set_sample_rate(uint8_t value) {
+    sample_rate_state.desired = value <= 42u ? CMD_SAMPLE_RATE_1X
+                                : value <= 84u ? CMD_SAMPLE_RATE_2X
+                                               : CMD_SAMPLE_RATE_4X;
+    sample_rate_state.desired_valid = true;
+    // Queue immediately so a following note-on remains ordered after its rate
+    // change. The main-loop flush retries if the link queue was temporarily full.
+    flush_sample_rate();
+}
 
 static uint8_t command_base(uint8_t voice, uint8_t voice0, uint8_t voice1) {
     return voice == 0 ? voice0 : voice1;
@@ -191,6 +218,11 @@ static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
         return;
     }
 
+    if (type == 0xB0u && channel == 9 && data1 == CC_SAMPLE_RATE) {
+        set_sample_rate(data2);
+        return;
+    }
+
     if (type == 0xB0u && channel < 2) {
         switch (data1) {
             case CC_SOUND_CONTROL:
@@ -224,6 +256,7 @@ static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
 }
 
 static void flush_shadow_state(void) {
+    flush_sample_rate();
     // Envelope configuration is sent first so a mode or rate change received
     // immediately before a note takes effect before that note's volume gate.
     for (uint8_t slot = 0; slot < ENVELOPE_STATE_COUNT; slot++) {
@@ -254,6 +287,7 @@ static void flush_shadow_state(void) {
 }
 
 static void invalidate_scheduled_state(void) {
+    sample_rate_state.scheduled_valid = false;
     for (uint8_t slot = 0; slot < REGISTER_STATE_COUNT; slot++) {
         register_state[slot].scheduled_valid = false;
     }

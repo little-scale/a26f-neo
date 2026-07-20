@@ -1,13 +1,16 @@
 # A26F NEO Manual
 
-Product release: v0.1
+Current public release: v0.1
+
+Development version: v0.11
 
 Primary television target: PAL50
 
 Secondary target: NTSC
 
 Product numbering is independent of the protocol and file-format versions.
-The next planned releases are v0.11, v0.12, and so on.
+The next planned releases after this development version are v0.12, v0.13,
+and so on.
 
 ## 1. Introduction
 
@@ -24,6 +27,7 @@ The instrument provides:
 - 32 wrapped drum-sample slots
 - Four-bit ROM-resident sample playback
 - Gated and one-shot samples
+- Global 1×, 2×, and 4× sample playback rates
 - Joystick-only soundcheck operation
 - Sixteen-band receive-history visualization with no black rows
 - Offline ROM and factory-bank creation
@@ -314,6 +318,11 @@ attack-hold-release mode.
 - A new sample replaces the current sample.
 - Exact source-note matching prevents stale note-offs from stopping a newer
   drum hit.
+- Channel 10 CC20 selects the global playback rate: 0–42 is 1×, 43–84 is 2×,
+  and 85–127 is 4×. The default is 1×.
+- Rate changes take effect during playback at the next packed sample-pair
+  boundary. The TIA amplitude-update cadence remains approximately 7.8 kHz;
+  faster modes skip source pairs and intentionally sound more aliased.
 
 Examples:
 
