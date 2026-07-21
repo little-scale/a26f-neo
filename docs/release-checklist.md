@@ -2,9 +2,9 @@
 
 ## Version policy
 
-- Current release: `v0.1`
-- Development/next release: `v0.11`
-- Continue in `v0.01` increments: `v0.12`, `v0.13`, and so on
+- Current release: `v0.11`
+- Development/next release: `v0.12`
+- Continue in `v0.01` increments: `v0.13`, `v0.14`, and so on
 - Update `VERSION` and add a new `CHANGELOG.md` section before each release
 - Do not change the wire, ROM, or factory format version unless compatibility
   actually changes

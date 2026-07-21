@@ -1,16 +1,15 @@
 # A26F NEO Manual
 
-Current public release: v0.1
+Current public release: v0.11
 
-Development version: v0.11
+Next development version: v0.12
 
 Primary television target: PAL50
 
 Secondary target: NTSC
 
 Product numbering is independent of the protocol and file-format versions.
-The next planned releases after this development version are v0.12, v0.13,
-and so on.
+The next planned releases are v0.12, v0.13, and so on.
 
 ## 1. Introduction
 
