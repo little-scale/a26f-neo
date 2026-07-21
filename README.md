@@ -2,11 +2,19 @@
 
 A26F NEO is a MIDI interface for the Atari 2600. 
 
-You'll need: An Atari 2600 console with a flashcart or EEPROM cart, a Raspberry Pi Pico 2W, wires, a two channel level shifter or two NPN transistors, 
+You'll need: 
+- An Atari 2600 console
+- An Atari 2600 flashcart or EEPROM cart
+- A Raspberry Pi Pico or Pico 2W
+- A two channel level shifter OR two NPN transistors (see details below)
+- A DB9 socket connector
+
+My testing setup was: An Atari 2600 JR PAL50 console with a Unocart clone and a stock Raspberry Pi Pico 2W
 
 In the [release bundle](https://github.com/little-scale/a26f-neo/releases) you'll find: 
-- The ROM images for the Atari 2600 (a26f-ntsc.bin and a26f-pal.bin, both will fit into a 32KB of space) - tested and working with a Unocart clone
-- The Pico 2 files (a26f-pico2w-noninverting.uf2 for use with a level shifter and a26f-pico2w-npn.uf2 for use with two NPN transistors) - tested with a stock Pico2W
+- The ROM images for the Atari 2600 (a26f-ntsc.bin or a26f-pal.bin, both will fit into a 32KB of space) 
+- The Pico files (a26f-pico-noninverting.uf2 for use with a level shifter or a26f-pico-npn.uf2 for use with two NPN transistors)
+- The Pico 2 files (a26f-pico2w-noninverting.uf2 for use with a level shifter or a26f-pico2w-npn.uf2 for use with two NPN transistors) 
 - The browser-based sample patcher (a26f-rom-patcher.html - load up the ROM and add your own samples!)
 
 <img width="1280" height="720" alt="atari_2600_setup_a26f-neo2" src="https://github.com/user-attachments/assets/14db985f-b0d5-4d41-8832-381d56d987e6" />
