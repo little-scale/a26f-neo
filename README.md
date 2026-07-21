@@ -27,11 +27,12 @@ Note that connecting the Pico 2W can be connected to the Atari 2600 directly:
 This will work (even without NPN or level shifter) and I have tried it extensively however the safety of the Pico GPIO pins cannot be guaranteed as they may be exposed to 5V. But it works fine for me for now. 
 
 The process is as follow: 
-- Upload the ROM to the flashcart or EEPROM cart
-- Connect the Pico 2W to a computer, this will show up as a USB MIDI device in a DAW
-- Connect the Pico 2W to the Atari 2600 controller port 2
+- Upload the Atari ROM to the flashcart or EEPROM cart
+- Upload the Pico UF2 file to the Pico 
+- Connect the Pico to a computer, this will show up as a USB MIDI device in a DAW
+- Connect the Pico to the Atari 2600 controller port 2
 - Run the ROM on the Atari 2600
-- Send MIDI data from the DAW to the Pico 2W
+- Send MIDI data from the DAW to the Pico
 - Monitor the audio from the Atari 2600 to hear the notes being played
 
 The MIDI mapping is as follows: 
