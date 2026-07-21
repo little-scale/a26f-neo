@@ -43,8 +43,9 @@ Tested on PAL50 hardware (Atari 2600 Jr). ROM image supplied for NTSC as well, u
 
 Current public release: **v0.1**
 
-> A26F NEO is an experimental hardware project. Use the documented
-> level-shifting interface; do not connect Pico GPIO directly to Atari inputs
+A26F NEO is an experimental hardware project. 
+
+======================================================================
 
 ## What is implemented
 
