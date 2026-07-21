@@ -10,10 +10,11 @@ In the [release bundle](https://github.com/little-scale/a26f-neo/releases) you'l
 - The browser-based sample patcher (a26f-rom-patcher.html - load up the ROM and add your own samples!)
 
 <img width="1280" height="720" alt="atari_2600_setup_a26f-neo2" src="https://github.com/user-attachments/assets/14db985f-b0d5-4d41-8832-381d56d987e6" />
+
 Note that connecting the Pico 2W can be connected to the Atari 2600 directly: 
-- Pico ground -> Atari 2600 port 2 pin 8 (black wire)
-- Pico GP 2 (data) --> Atari 2600 port 2 pin 2 (grey wire)
-- Pico GP3 (clock) --> Atari 2600 port 2 pin 1 (white wire)
+- Pico ground to Atari 2600 port 2 pin 8 (black wire)
+- Pico GP 2 (data) to Atari 2600 port 2 pin 2 (grey wire)
+- Pico GP3 (clock) to Atari 2600 port 2 pin 1 (white wire)
 
 This will work (even without NPN or level shifter) and I have tried it extensively however the safety of the Pico GPIO pins cannot be guaranteed as they may be exposed to 5V. But it works fine for me for now. 
 
