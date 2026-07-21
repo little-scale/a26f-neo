@@ -111,6 +111,14 @@ pair, while `E4` explicitly resets pending parser state.
 
 ## MIDI mapping
 
+The Pico accepts the same mapped messages from its class-compliant USB MIDI
+device endpoint and from an opto-isolated 31.25 kbit/s UART1 input on GP5.
+Serial input supports running status, safely consumes system-common messages,
+permits interleaved system real-time bytes, and skips SysEx. USB and UART input
+may be active together and share one synth/sample state; the most recent
+mapped event wins. GP6 is held high for approximately 35 ms after each mapped
+message accepted from either transport.
+
 ### Synth voices
 
 | MIDI input | Result |

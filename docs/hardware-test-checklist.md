@@ -63,9 +63,24 @@ Leave the Atari disconnected.
 - [ ] Select it as a MIDI output.
 - [ ] Send channel 1 and channel 10 notes.
 - [ ] Confirm the Pico LED responds to incoming MIDI.
+- [ ] Confirm GP6 rises to approximately 3.3 V for about 35 ms for each mapped
+      MIDI message.
 
-The LED confirms USB MIDI reception only. It does not prove controller-port
-transfer.
+The activity indicators confirm that a mapped MIDI message reached the Pico.
+They do not prove controller-port transfer.
+
+### Optional traditional MIDI input
+
+- [ ] 6N138 pin 8 reaches Pico VBUS/5 V and pin 5 reaches Pico ground.
+- [ ] A 100 nF capacitor is fitted directly between 6N138 pins 8 and 5.
+- [ ] 6N138 pin 6 reaches GP5 and has a 2.2 kohm pull-up to Pico 3V3(OUT).
+- [ ] 6N138 pin 7 reaches Pico ground through 47 kohm.
+- [ ] DIN pin 4/TRS Type A ring reaches 6N138 pin 2 through 220 ohm.
+- [ ] DIN pin 5/TRS Type A tip reaches 6N138 pin 3.
+- [ ] The 1N4148 cathode/striped end reaches pin 2 and its anode reaches pin 3.
+- [ ] DIN pin 2/TRS sleeve has no direct DC path to Pico ground.
+- [ ] Traditional MIDI produces the same mapped notes, CCs, pitch bend, and
+      GP6 activity indication as USB MIDI.
 
 ## 4. Optional signal test
 
@@ -130,8 +145,9 @@ Power down before connecting the controller-port interface.
 | No stable display | ROM TV target, flashcart setting, or ROM image |
 | Joystick tones work; samples do not | Wrong/empty ROM sample bank or wrong soundcheck bank |
 | Pico MIDI device absent | UF2, USB cable, USB port, or host MIDI setup |
-| Pico LED inactive | DAW routing or incoming USB MIDI |
-| Pico LED active; Atari unchanged | Ground, GPIO assignment, transistor pinout, or polarity firmware |
+| MIDI activity LED inactive over USB | DAW routing or incoming USB MIDI |
+| MIDI activity LED inactive over DIN/TRS | GP5, 6N138 circuit, connector polarity, or unsupported message |
+| MIDI activity LED active; Atari unchanged | Ground, GPIO assignment, transistor pinout, or polarity firmware |
 | Random Atari commands | Data polarity, missed clock edges, poor ground, or wiring noise |
 | Synth works; samples fail over MIDI | Channel 10 routing or note-to-slot choice |
 | Samples start but do not gate | Slot is one-shot or note-off pitch does not exactly match |

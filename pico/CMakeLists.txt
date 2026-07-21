@@ -12,6 +12,7 @@ function(add_a26f_firmware target inversion txs_gpio_oe product_name)
     add_executable(${target}
         src/link.c
         src/main.c
+        src/midi_serial_parser.c
         src/usb_descriptors.c
     )
 
@@ -24,6 +25,7 @@ function(add_a26f_firmware target inversion txs_gpio_oe product_name)
 
     target_link_libraries(${target} PRIVATE
         pico_stdlib
+        hardware_uart
         tinyusb_device
         tinyusb_board
     )

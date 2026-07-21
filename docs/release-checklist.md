@@ -21,8 +21,8 @@ This rebuilds and tests the Atari ROMs and browser tool, runs Stella checks,
 builds and verifies the original Pico and Pico 2 W firmware, and creates:
 
 ```text
-dist/a26f-neo-v0.11/
-dist/a26f-neo-v0.11.zip
+dist/a26f-neo-v0.12/
+dist/a26f-neo-v0.12.zip
 ```
 
 ## Release contents
@@ -47,6 +47,8 @@ dist/a26f-neo-v0.11.zip
 - Confirm `git status` contains only intended source and documentation changes.
 - Confirm both ROMs are exactly 32,768 bytes and Stella identifies them as F4.
 - Confirm the PAL ROM boots on original hardware and joystick soundcheck works.
+- Confirm GP5/UART1 accepts opto-isolated DIN or TRS Type A MIDI and GP6 holds
+  the external valid-message LED visibly high for mapped USB and UART events.
 - Flash `a26f-pico2w-noninverting.uf2` to the tested Pico 2 W and confirm MIDI,
   synthesis, sample triggering, gate-off, CC20 rates at 1×/2×/4×, and
   receive-history bands.

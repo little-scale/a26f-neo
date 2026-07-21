@@ -2,7 +2,11 @@
 #include <stdint.h>
 
 #include "bsp/board_api.h"
+#include "config.h"
+#include "hardware/uart.h"
 #include "link.h"
+#include "midi_serial_parser.h"
+#include "pico/stdlib.h"
 #include "tusb.h"
 
 enum {
@@ -59,7 +63,18 @@ static bool attack_decay_mode[2];
 static shadow_state_t register_state[REGISTER_STATE_COUNT];
 static shadow_state_t envelope_state[ENVELOPE_STATE_COUNT];
 static shadow_state_t sample_rate_state;
-static bool midi_activity;
+static a26f_midi_serial_parser_t serial_midi_parser;
+static uint32_t midi_activity_until_ms;
+
+_Static_assert(A26F_MIDI_RX_GPIO != A26F_LINK_DATA_GPIO &&
+                   A26F_MIDI_RX_GPIO != A26F_LINK_CLOCK_GPIO &&
+                   A26F_MIDI_RX_GPIO != A26F_TXS0108E_OE_GPIO,
+               "MIDI RX must not share an Atari-link GPIO");
+_Static_assert(A26F_MIDI_ACTIVITY_GPIO != A26F_MIDI_RX_GPIO &&
+                   A26F_MIDI_ACTIVITY_GPIO != A26F_LINK_DATA_GPIO &&
+                   A26F_MIDI_ACTIVITY_GPIO != A26F_LINK_CLOCK_GPIO &&
+                   A26F_MIDI_ACTIVITY_GPIO != A26F_TXS0108E_OE_GPIO,
+               "MIDI activity LED must use a dedicated GPIO");
 
 static void flush_sample_rate(void) {
     if (!sample_rate_state.desired_valid ||
@@ -186,7 +201,7 @@ static void handle_drum_note_off(uint8_t note) {
     a26f_link_enqueue(CMD_SAMPLE_GATE_OFF);
 }
 
-static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
+static bool handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
     const uint8_t type = status & 0xF0u;
     const uint8_t channel = status & 0x0Fu;
 
@@ -194,33 +209,39 @@ static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
         // MIDI defines note-on with velocity zero as note-off.
         if (channel == 9) {
             handle_drum_note_off(data1);
+            return true;
         } else if (channel < 2) {
             handle_synth_note_off(channel, data1);
+            return true;
         }
-        return;
+        return false;
     }
 
     if (type == 0x90u) {
         if (channel == 9) {
             handle_drum_note_on(data1);
+            return true;
         } else if (channel < 2) {
             handle_synth_note_on(channel, data1, data2);
+            return true;
         }
-        return;
+        return false;
     }
 
     if (type == 0x80u) {
         if (channel == 9) {
             handle_drum_note_off(data1);
+            return true;
         } else if (channel < 2) {
             handle_synth_note_off(channel, data1);
+            return true;
         }
-        return;
+        return false;
     }
 
     if (type == 0xB0u && channel == 9 && data1 == CC_SAMPLE_RATE) {
         set_sample_rate(data2);
-        return;
+        return true;
     }
 
     if (type == 0xB0u && channel < 2) {
@@ -228,7 +249,7 @@ static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
             case CC_SOUND_CONTROL:
                 request_register(command_base(channel, CMD_AUDC0, CMD_AUDC1) |
                                  ((data2 >> 3u) & 0x0Fu));
-                break;
+                return true;
             case CC_ENVELOPE_MODE:
                 if (attack_decay_mode[channel] != (data2 > 63u)) {
                     // The Atari may have autonomously decayed while the Pico's
@@ -237,22 +258,25 @@ static void handle_midi_message(uint8_t status, uint8_t data1, uint8_t data2) {
                 }
                 attack_decay_mode[channel] = data2 > 63u;
                 set_envelope(channel, ENV_MODE, data2);
-                break;
+                return true;
             case CC_ATTACK:
                 set_envelope(channel, ENV_ATTACK, data2);
-                break;
+                return true;
             case CC_RELEASE:
                 set_envelope(channel, ENV_RELEASE, data2);
-                break;
+                return true;
             default:
-                break;
+                return false;
         }
     }
 
     if (type == 0xE0u && channel < 2) {
         pitch_bend[channel] = ((uint16_t)data2 << 7u) | data1;
         request_bent_pitch(channel);
+        return true;
     }
+
+    return false;
 }
 
 static void flush_shadow_state(void) {
@@ -296,20 +320,64 @@ static void invalidate_scheduled_state(void) {
     }
 }
 
-static void midi_task(void) {
+static void show_midi_activity(void) {
+    midi_activity_until_ms = to_ms_since_boot(get_absolute_time()) +
+                             A26F_MIDI_ACTIVITY_HOLD_MS;
+}
+
+static bool midi_activity_visible(void) {
+    const uint32_t now = to_ms_since_boot(get_absolute_time());
+    return (int32_t)(midi_activity_until_ms - now) > 0;
+}
+
+static void serial_midi_message(void *context,
+                                uint8_t status,
+                                uint8_t data1,
+                                uint8_t data2) {
+    (void)context;
+    if (handle_midi_message(status, data1, data2)) {
+        show_midi_activity();
+    }
+}
+
+static void midi_uart_init(void) {
+    uart_init(uart1, 31250);
+    uart_set_format(uart1, 8, 1, UART_PARITY_NONE);
+    uart_set_hw_flow(uart1, false, false);
+    uart_set_fifo_enabled(uart1, true);
+    gpio_set_function(A26F_MIDI_RX_GPIO, GPIO_FUNC_UART);
+    a26f_midi_serial_parser_init(&serial_midi_parser,
+                                 serial_midi_message,
+                                 NULL);
+}
+
+static void midi_uart_task(void) {
+    while (uart_is_readable(uart1)) {
+        a26f_midi_serial_parser_feed(&serial_midi_parser,
+                                     (uint8_t)uart_getc(uart1));
+    }
+}
+
+static void midi_usb_task(void) {
     while (tud_midi_available()) {
         uint8_t packet[4];
         if (!tud_midi_packet_read(packet)) {
             break;
         }
-        handle_midi_message(packet[1], packet[2], packet[3]);
-        midi_activity = true;
+        if (handle_midi_message(packet[1], packet[2], packet[3])) {
+            show_midi_activity();
+        }
     }
 }
 
 int main(void) {
     board_init();
     a26f_link_init();
+
+    gpio_init(A26F_MIDI_ACTIVITY_GPIO);
+    gpio_put(A26F_MIDI_ACTIVITY_GPIO, false);
+    gpio_set_dir(A26F_MIDI_ACTIVITY_GPIO, GPIO_OUT);
+    midi_uart_init();
 
     tusb_init();
     if (board_init_after_tusb) {
@@ -318,7 +386,8 @@ int main(void) {
 
     while (true) {
         tud_task();
-        midi_task();
+        midi_usb_task();
+        midi_uart_task();
 
         if (a26f_link_take_overflow()) {
             a26f_link_discard_pending();
@@ -329,11 +398,8 @@ int main(void) {
         flush_shadow_state();
         a26f_link_task();
 
-        if (midi_activity) {
-            board_led_write(true);
-            midi_activity = false;
-        } else {
-            board_led_write(false);
-        }
+        const bool activity = midi_activity_visible();
+        gpio_put(A26F_MIDI_ACTIVITY_GPIO, activity);
+        board_led_write(activity);
     }
 }

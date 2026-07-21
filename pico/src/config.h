@@ -18,6 +18,13 @@
 #define A26F_LINK_DATA_GPIO 2
 #define A26F_LINK_CLOCK_GPIO 3
 
+// Opto-isolated DIN/TRS MIDI input and external valid-message indicator.
+// GP5 is UART1 RX on both supported Pico board targets. GP6 drives an LED
+// through an external current-limiting resistor.
+#define A26F_MIDI_RX_GPIO 5
+#define A26F_MIDI_ACTIVITY_GPIO 6
+#define A26F_MIDI_ACTIVITY_HOLD_MS 35
+
 // Conservative hardware-test timing. At 1 ms per clock transition the Atari
 // polls each bit several times, while the 5 ms byte gap lets its idle detector
 // restore byte alignment before every command.

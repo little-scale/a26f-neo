@@ -14,6 +14,11 @@ test:
 	$(MAKE) -C atari clean all
 	@node web/build.mjs
 	@node --test tests/*.test.mjs
+	@mkdir -p pico/build-host
+	@$(CC) -std=c11 -Wall -Wextra -Werror -Ipico/src \
+		tests/midi_serial_parser_test.c pico/src/midi_serial_parser.c \
+		-o pico/build-host/midi_serial_parser_test
+	@pico/build-host/midi_serial_parser_test
 
 test-pico:
 	@cmake -S pico -B $(PICO_TEST_BUILD) -DPICO_BOARD=pico $(PICO_CMAKE_ARGS)

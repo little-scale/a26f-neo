@@ -5,6 +5,16 @@ Product releases use decimal-style pre-1.0 numbering. The initial release is
 and so on). Product release numbers are independent of the wire protocol, ROM
 sample format, and factory-bank format versions.
 
+## v0.12 — unreleased
+
+### Added
+
+- Opto-isolated 31.25 kbit/s DIN or TRS Type A MIDI input on GP5/UART1
+- Shared serial-MIDI parser with running-status, system-common, real-time, and
+  SysEx handling
+- GP6 output for a 35 ms valid mapped-message activity LED
+- Documented 6N138 receiver circuit with 3.3 V-safe output signalling
+
 ## v0.11 — 2026-07-21
 
 ### Added

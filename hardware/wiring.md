@@ -54,7 +54,13 @@ Default GPIO allocation:
 - GP2: data
 - GP3: clock
 - GP4: TXS0108E OE in the non-inverting UF2
+- GP5: opto-isolated traditional MIDI UART receive
+- GP6: valid mapped-MIDI activity LED output
 - `3V3(OUT)`, Pico header pin 36: TXS0108E VCCA/VA
+
+See [Traditional MIDI input](midi-input.md) for the 6N138 DIN/TRS circuit. Its
+connector side remains galvanically isolated and does not share the Atari/Pico
+ground.
 
 ## TXS0108E non-inverting interface
 

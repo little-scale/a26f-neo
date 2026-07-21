@@ -68,6 +68,15 @@ initialized. The Atari ROM only reads these pins in either arrangement.
 - Computer with a MIDI-capable DAW, sequencer, or test utility
 - Joystick in controller port 1 for local soundcheck
 
+For optional traditional MIDI input:
+
+- Female 5-pin 180-degree DIN socket or 3.5 mm TRS socket wired as Type A
+- 6N138 optocoupler
+- 220 ohm, 2.2 kohm, 47 kohm, and 1 kohm resistors
+- 1N4148 or 1N914 diode
+- 100 nF ceramic capacitor
+- LED for valid mapped-message indication
+
 Optional but recommended:
 
 - Multimeter
@@ -94,6 +103,8 @@ TXS0108E interface also uses controller-port pin 7 for its 5 V-side supply.
 | Data | GP2 | 4 |
 | Clock | GP3 | 5 |
 | TXS0108E output enable | GP4 | 6 |
+| Traditional MIDI UART receive | GP5 | 7 |
+| Valid mapped-MIDI LED | GP6 | 9 |
 | TXS0108E VCCA supply | `3V3(OUT)` | 36 |
 
 ### Transistor stages
@@ -150,6 +161,26 @@ This arrangement uses Atari pin 7 for the translator's 5 V side, so it is a
 four-wire controller-port interface. Do not substitute a TXB0108 module and do
 not connect Pico GPIO directly to the Atari inputs.
 
+### Traditional MIDI input
+
+The same production UF2 accepts opto-isolated 31.25 kbit/s MIDI on GP5/UART1
+while USB MIDI remains active. Use the complete circuit and connector mapping
+in [Traditional MIDI input](../hardware/midi-input.md).
+
+For a 6N138 breadboard circuit, use a 220-ohm MIDI-loop resistor and 1N4148
+reverse diode on the isolated input side. Power 6N138 pin 8 from Pico VBUS/5 V,
+connect pin 5 to Pico ground, bypass pins 8 and 5 with 100 nF, connect pin 7 to
+ground through 47 kohm, and connect pin 6 to GP5 with a 2.2-kohm pull-up from
+pin 6 to Pico `3V3(OUT)`. Do not pull the GP5 signal up to 5 V.
+
+For the activity indicator, connect GP6 through 1 kohm to the LED anode and
+connect the cathode to Pico ground. It lights for approximately 35 ms when a
+mapped A26F message is accepted from USB or traditional MIDI.
+
+DIN pin 2 or the TRS sleeve must not have a direct DC connection to Pico
+ground. For TRS, use Type A: ring is DIN pin 4/current source and tip is DIN
+pin 5/current sink.
+
 ## 5. Atari ROMs
 
 ### Production ROMs
@@ -204,8 +235,9 @@ Local build outputs use the shorter `a26f_neo_*.uf2` names inside
 The firmware does not require a serial driver or MIDI driver on operating
 systems that support class-compliant USB MIDI.
 
-The Pico's onboard LED responds to incoming USB MIDI activity. This confirms
-USB reception, not necessarily successful transfer to the Atari.
+The GP6 activity LED, and the onboard LED where supported by the board,
+respond to mapped MIDI received over USB or the traditional UART input. This
+confirms Pico reception, not necessarily successful transfer to the Atari.
 
 ### Diagnostic UF2 files
 
@@ -245,10 +277,16 @@ test the physical Pico-to-Atari link.
 8. Send channel 10 note 32 and confirm sample slot 0.
 9. Test gated note-off behaviour.
 10. Confirm pitch and amplitude commands occupy separate history bands.
+11. If traditional MIDI is fitted, disconnect the DAW's USB MIDI route, send
+    the same messages through DIN/TRS, and confirm identical audio, colour,
+    and GP6 LED response.
 
 ## 8. MIDI operation
 
 MIDI channel numbers below use the usual user-facing numbering from 1 to 16.
+USB MIDI and opto-isolated GP5 UART MIDI use the same mapping and may remain
+active simultaneously. If both sources control one A26F channel, the most
+recent event wins.
 
 ### Synth voices
 
@@ -549,7 +587,8 @@ checks the two PAL/NTSC production images and their F4 mapper identification.
 make release
 ```
 
-This runs the Atari, browser, Stella, original Pico, and Pico 2 W checks, then
+This runs the Atari, browser, Stella, original Pico, and Pico 2 W checks,
+including the host serial-MIDI parser tests, then
 creates a versioned directory and zip archive under `dist/`. See
 `docs/release-checklist.md` for bundle contents and the final hardware checks.
 
@@ -584,9 +623,9 @@ creates a versioned directory and zip archive under `dist/`. See
 - Check the MIDI device list for **A26F NEO NPN** or
   **A26F NEO Non-Inverting**.
 
-### Pico LED reacts but Atari does not
+### MIDI activity LED reacts but Atari does not
 
-- USB MIDI reception is working; focus on the physical link.
+- Mapped MIDI reception is working; focus on the physical Atari link.
 - Confirm common ground to Atari port 2 pin 8.
 - Confirm GP2 is data and GP3 is clock.
 - Confirm transistor collector/emitter orientation.
@@ -594,6 +633,15 @@ creates a versioned directory and zip archive under `dist/`. See
 - Confirm the `npn` UF2 is used with the two-NPN stages, or the `noninverting`
   UF2 with a suitable non-inverting interface.
 - Confirm the Atari ROM is the current A26F build.
+
+### Traditional MIDI does not light GP6
+
+- Confirm the source sends 31.25 kbit/s MIDI, not analogue sync or audio.
+- Confirm GP5 idles near 3.3 V and falls toward 0 V during incoming data.
+- Confirm the 6N138 has 5 V between pins 8 and 5.
+- Confirm the pin-6 pull-up goes to 3V3(OUT), not 5 V.
+- Confirm the DIN or TRS Type A source/sink orientation and reverse diode.
+- Confirm the message uses an A26F mapped channel and control.
 
 ### Notes stick
 
@@ -612,7 +660,7 @@ creates a versioned directory and zip archive under `dist/`. See
 
 - Confirm the current `a26f-pal.bin` or `a26f-ntsc.bin` is running.
 - A MIDI note normally produces separate pitch and amplitude command bytes.
-- If the Pico LED reacts but no bands change, verify GP2 data and GP3 clock at
+- If the MIDI activity LED reacts but no bands change, verify GP2 data and GP3 clock at
   controller port 2 with a meter, logic analyser, or oscilloscope.
 - Very dark bands are valid, but the RX visualizer forces a minimum luminance
   and should not create black rows. A black row therefore suggests an older

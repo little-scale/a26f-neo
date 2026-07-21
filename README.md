@@ -55,6 +55,8 @@ A26F NEO is an experimental hardware project.
 ## What is implemented
 
 - USB MIDI device firmware for RP2040 and RP2350 Pico-family boards
+- Opto-isolated 5-pin DIN or 3.5 mm TRS Type A MIDI input on GP5
+- GP6 output for a valid mapped-MIDI activity LED
 - Three-signal unidirectional link: clock, data, and common ground
 - MIDI channels 1 and 2 mapped to the two TIA audio voices
 - Switchable attack-hold-release and attack-decay envelopes controlled by MIDI CC
@@ -72,10 +74,12 @@ A26F NEO is an experimental hardware project.
 ## System overview
 
 ```text
-Computer / DAW
-    │ USB MIDI
-    ▼
-Pico 2 W ── clock + data + ground ──► Atari controller port 2
+Computer / DAW ───────── USB MIDI ──────┐
+                                        ▼
+DIN or TRS MIDI ── opto-isolator ──► Pico/Pico 2 W
+                                        │ clock + data + ground
+                                        ▼
+                               Atari controller port 2
                                               │
                                               ▼
                                       A26F NEO F4 ROM
@@ -91,6 +95,7 @@ it never changes the link pins to outputs.
 - [User and builder manual](docs/manual.md)
 - [PAL hardware bring-up checklist](docs/hardware-test-checklist.md)
 - [Safe controller-port interface](hardware/wiring.md)
+- [Traditional DIN/TRS MIDI input](hardware/midi-input.md)
 - [MIDI and wire protocol](protocol/protocol.md)
 - [Patchable ROM format](protocol/rom-format.md)
 - [Factory-bank format](protocol/factory-format.md)
@@ -263,7 +268,7 @@ make release
 ```
 
 This uses `VERSION` for the output name, currently creating
-`dist/a26f-neo-v0.11/` and `dist/a26f-neo-v0.11.zip`, including the
+`dist/a26f-neo-v0.12/` and `dist/a26f-neo-v0.12.zip`, including the
 two production ROMs, non-inverting and NPN UF2s for both Pico and Pico 2 W,
 offline patcher, default factory, documentation, and SHA-256 checksums.
 
