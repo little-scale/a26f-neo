@@ -1,18 +1,49 @@
 # A26F NEO
 
-A26F NEO turns a Raspberry Pi Pico-family board and a custom Atari 2600 ROM
-into a class-compliant USB MIDI instrument with two TIA synth voices, 4-bit
-drum sample playback, performance visuals, and a fully offline sample-bank
-tool.
+A26F NEO is a MIDI interface for the Atari 2600. 
 
-PAL50 hardware is the primary target. Matching NTSC firmware-independent ROMs
-and sample variants are built from the same source.
+You'll need: An Atari 2600 console with a flashcart or EEPROM cart, a Raspberry Pi Pico 2W, wires, a two channel level shifter or two NPN transistors, 
 
-Current public release: **v0.1**. Development version: **v0.11**. Later pre-1.0
-releases increment by `v0.01`, producing `v0.12`, `v0.13`, and so on.
+In the [release bundle](https://github.com/little-scale/a26f-neo/releases) you'll find: 
+- The ROM images for the Atari 2600 (a26f-ntsc.bin and a26f-pal.bin, both will fit into a 32KB of space) - tested and working with a Unocart clone
+- The Pico 2 files (a26f-pico2w-noninverting.uf2 for use with a level shifter and a26f-pico2w-npn.uf2 for use with two NPN transistors) - tested with a stock Pico2W
+- The browser-based sample patcher (a26f-rom-patcher.html - load up the ROM and add your own samples!)
 
-> A26F NEO is currently an experimental hardware project. Use the documented
-> level-shifting interface; do not connect Pico GPIO directly to Atari inputs.
+<img width="1280" height="720" alt="atari_2600_setup_a26f-neo2" src="https://github.com/user-attachments/assets/14db985f-b0d5-4d41-8832-381d56d987e6" />
+Note that connecting the Pico 2W can be connected to the Atari 2600 directly: 
+- Pico ground -> Atari 2600 port 2 pin 8 - black wire
+- Pico GP 2 (data) --> Atari 2600 port 2 pin 2 - grey wire
+- Pico GP3 (clock) --> Atari 2600 port 2 pin 1 - white wire
+
+This will work (even without NPN or level shifter) and I have tried it extensively however the safety of the Pico GPIO pins cannot be guaranteed as they may be exposed to 5V. But it works fine for me for now. 
+
+The process is as follow: 
+- Upload the ROM to the flashcart or EEPROM cart
+- Connect the Pico 2W to a computer, this will show up as a USB MIDI device in a DAW
+- Connect the Pico 2W to the Atari 2600 controller port 2
+- Run the ROM on the Atari 2600
+- Send MIDI data from the DAW to the Pico 2W
+- Monitor the audio from the Atari 2600 to hear the notes being played
+
+The MIDI mapping is as follows: 
+
+- MIDI channels 1 and 2 are mapped to TIA sound channels 0 and 1
+- Pitches wrap around every 32 notes; pitchbend will change the pitch as well
+- Velocity controls amplitude and is scalled to one of 16 levels
+- CC1 will set the sound of the TIA channel to one of 16 choices
+- CC73 will set the attack time of the TIA channel to one of 16 choices
+- CC72 will set the release rate of the TIA channel to one of 16 choices
+- CC70 will set envelope behaviour of the envelope; <= 63 and note offs are respected, > 63 and notes offs are ignores, the release begins immediately after the attack
+- Sending MIDI notes on channel 10 will trigger one shot drum samples. The samples are stored in the Atari 2600 ROM and can be added to or replaced by using the browser patcher tool in releases. Note that playing a sample will consume TIA channel 1 for the duration of that sample playback.
+- CC20 on MIDI channel 10 will set the drum sample playback rate to 1x, 2x or 4x
+
+
+Tested on PAL50 hardware (Atari 2600 Jr). ROM image supplied for NTSC as well, untested on hardware but appears to be running fine under emulation (Stella). 
+
+Current public release: **v0.1**
+
+> A26F NEO is an experimental hardware project. Use the documented
+> level-shifting interface; do not connect Pico GPIO directly to Atari inputs
 
 ## What is implemented
 
