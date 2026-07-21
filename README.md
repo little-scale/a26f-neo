@@ -47,10 +47,6 @@ The MIDI mapping is as follows:
 - CC20 on MIDI channel 10 will set the drum sample playback rate to 1x, 2x or 4x
 
 
-Tested on PAL50 hardware (Atari 2600 Jr). ROM image supplied for NTSC as well, untested on hardware but appears to be running fine under emulation (Stella). 
-
-Current public release: **v0.1**
-
 A26F NEO is an experimental hardware project. 
 
 ======================================================================
