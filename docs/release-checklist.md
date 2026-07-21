@@ -18,7 +18,7 @@ make release
 ```
 
 This rebuilds and tests the Atari ROMs and browser tool, runs Stella checks,
-builds and verifies the Pico 2 W firmware, and creates:
+builds and verifies the original Pico and Pico 2 W firmware, and creates:
 
 ```text
 dist/a26f-neo-v0.11/
@@ -29,6 +29,8 @@ dist/a26f-neo-v0.11.zip
 
 - `a26f-pal.bin`
 - `a26f-ntsc.bin`
+- `a26f-pico-noninverting.uf2`
+- `a26f-pico-npn.uf2`
 - `a26f-pico2w-noninverting.uf2`
 - `a26f-pico2w-npn.uf2`
 - `a26f-rom-patcher.html`

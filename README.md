@@ -134,18 +134,18 @@ edited, and exported by the offline browser tool.
 
 ## Build Pico firmware
 
-The current hardware target is Raspberry Pi Pico 2 W (`pico2_w`, RP2350) with
-Pico SDK 2.3.0.
+The current hardware-tested target is Raspberry Pi Pico 2 W (`pico2_w`,
+RP2350). The original Raspberry Pi Pico (`pico`, RP2040) is also built and
+software-verified. Both use Pico SDK 2.3.0.
 
 ```sh
+cmake -S pico -B pico/build-pico -DPICO_BOARD=pico
+cmake --build pico/build-pico
 cmake -S pico -B pico/build-pico2w -DPICO_BOARD=pico2_w
 cmake --build pico/build-pico2w
 ```
 
-The original RP2040 Pico remains supported by selecting `PICO_BOARD=pico` and
-using a separate build directory.
-
-The build creates two explicitly labelled firmware images:
+Each board build creates two explicitly labelled firmware images:
 
 | UF2 | Interface | USB MIDI name |
 |---|---|---|
@@ -259,8 +259,8 @@ make release
 
 This uses `VERSION` for the output name, currently creating
 `dist/a26f-neo-v0.11/` and `dist/a26f-neo-v0.11.zip`, including the
-two production ROMs, two Pico 2 W interface UF2s, offline patcher, default
-factory, documentation, and SHA-256 checksums.
+two production ROMs, non-inverting and NPN UF2s for both Pico and Pico 2 W,
+offline patcher, default factory, documentation, and SHA-256 checksums.
 
 ## Author
 

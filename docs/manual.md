@@ -179,15 +179,18 @@ evaluating timing or pitch.
 
 ## 6. Flashing the Pico
 
-Two production USB MIDI UF2 files are produced, along with the diagnostic
-images described below:
+Each board build produces two USB MIDI UF2 files. The release bundle contains
+both interface variants for the original Pico and Pico 2 W:
 
-| UF2 | Compile-time inversion | USB MIDI name |
-|---|---:|---|
-| `a26f_neo_npn.uf2` | `1` | `A26F NEO NPN` |
-| `a26f_neo_noninverting.uf2` | `0` | `A26F NEO Non-Inverting` |
+| Board | Bundled UF2 | Compile-time inversion | USB MIDI name |
+|---|---|---:|---|
+| Pico | `a26f-pico-npn.uf2` | `1` | `A26F NEO NPN` |
+| Pico | `a26f-pico-noninverting.uf2` | `0` | `A26F NEO Non-Inverting` |
+| Pico 2 W | `a26f-pico2w-npn.uf2` | `1` | `A26F NEO NPN` |
+| Pico 2 W | `a26f-pico2w-noninverting.uf2` | `0` | `A26F NEO Non-Inverting` |
 
-The current Pico 2 W builds are normally placed in `pico/build-pico2w/`.
+Local build outputs use the shorter `a26f_neo_*.uf2` names inside
+`pico/build-pico/` and `pico/build-pico2w/`.
 
 1. Disconnect the Pico.
 2. Hold the BOOTSEL button.
@@ -546,8 +549,8 @@ checks the two PAL/NTSC production images and their F4 mapper identification.
 make release
 ```
 
-This runs the Atari, browser, Stella, and Pico 2 W checks, then creates a
-versioned directory and zip archive under `dist/`. See
+This runs the Atari, browser, Stella, original Pico, and Pico 2 W checks, then
+creates a versioned directory and zip archive under `dist/`. See
 `docs/release-checklist.md` for bundle contents and the final hardware checks.
 
 ## 15. Troubleshooting

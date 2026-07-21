@@ -25,6 +25,9 @@ test-stella:
 	@node tools/stella-smoke.mjs
 
 release: test test-stella
+	@cmake -S pico -B pico/build-pico -DPICO_BOARD=pico $(PICO_CMAKE_ARGS)
+	@cmake --build pico/build-pico
+	@node tools/verify-pico-build.mjs pico/build-pico
 	@cmake -S pico -B pico/build-pico2w -DPICO_BOARD=pico2_w $(PICO_CMAKE_ARGS)
 	@cmake --build pico/build-pico2w
 	@node tools/verify-pico-build.mjs pico/build-pico2w pico2_w

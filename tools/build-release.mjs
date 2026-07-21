@@ -30,6 +30,8 @@ await mkdir(bundleDir, {recursive: true});
 const payloads = [
   ["atari/build/a26f-pal.bin", "a26f-pal.bin"],
   ["atari/build/a26f-ntsc.bin", "a26f-ntsc.bin"],
+  ["pico/build-pico/a26f_neo_noninverting.uf2", "a26f-pico-noninverting.uf2"],
+  ["pico/build-pico/a26f_neo_npn.uf2", "a26f-pico-npn.uf2"],
   ["pico/build-pico2w/a26f_neo_noninverting.uf2", "a26f-pico2w-noninverting.uf2"],
   ["pico/build-pico2w/a26f_neo_npn.uf2", "a26f-pico2w-npn.uf2"],
   ["web/a26f-rom-patcher.html", "a26f-rom-patcher.html"],
