@@ -96,6 +96,7 @@ it never changes the link pins to outputs.
 - [PAL hardware bring-up checklist](docs/hardware-test-checklist.md)
 - [Safe controller-port interface](hardware/wiring.md)
 - [Traditional DIN/TRS MIDI input](hardware/midi-input.md)
+- [Shared Chipbridge hardware and Atari 9-pin adapter](https://github.com/little-scale/chipbridge)
 - [MIDI and wire protocol](protocol/protocol.md)
 - [Patchable ROM format](protocol/rom-format.md)
 - [Factory-bank format](protocol/factory-format.md)
@@ -113,6 +114,11 @@ it never changes the link pins to outputs.
 | `hardware/` | Electrical interface documentation |
 | `protocol/` | Wire, ROM, and factory format specifications |
 | `tools/` | ROM verification and factory application utilities |
+
+The shared RP2040-Zero PCB and Atari 9-pin adapter are maintained by
+**[Chipbridge](https://github.com/little-scale/chipbridge)**. A26F NEO retains
+the Atari 2600-specific Pico firmware, console ROM, and wire protocol in this
+repository.
 
 ## Build Atari ROMs
 
